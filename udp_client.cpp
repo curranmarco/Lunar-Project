@@ -3,6 +3,9 @@
 #include <netinet/in.h> // IP Address structures
 #include <arpa/inet.h> 
 #include <unistd.h>
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
 
 #define SERVER_IP "127.0.0.1"  // Use actual IP if running on different machines
 #define SERVER_PORT 5000
@@ -26,11 +29,22 @@ int main() {
 
     // Send a message to the server
     std::cout << "Connecting to Ground Station...\n";
-    char dummyMessage[1] = {0};  // Empty message to simulate connection
-    // Send message to server
-    sendto(sock, dummyMessage, sizeof(dummyMessage), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-
-    std::cout << "Connection successful!\n";
+    srand(time(0));
+    // Keep sending data until stopped manually
+    while (true){
+        // Generate random temperature and pressure data
+        char data[50];
+        int temp = rand() % 50;
+        int pressure = rand() % 1000 +900;
+        
+        // Format data
+        snprintf(data, sizeof(data), "Temperature: %d, Pressure: %d", temp, pressure);
+        // Send data to server
+        sendto(sock, data, strlen(data), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        std::cout << "Data sent to Ground Station: " << data << std::endl;
+        sleep(2);
+    }
+    
 
     close(sock);
     return 0;
