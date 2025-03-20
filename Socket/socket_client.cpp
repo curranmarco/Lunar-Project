@@ -18,6 +18,7 @@ SocketClient::SocketClient(const std::string& server_ip, int port) {
 }
 
 bool SocketClient::connectToServer() {
+    std::cout << "Connecting to the server...\n";
     if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         std::cerr << "Connection failed.\n";
         return false;
