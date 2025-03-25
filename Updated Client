@@ -12,7 +12,7 @@
  * Handles large messages via chunked transfer
  */
 int main(int argc, char *argv[]) {
-    // CHeck for Argument 
+    // Check for Argument 
     if (argc < 3) {
         std::cerr << "Error: Missing arguments\n"
                   << "Usage: " << argv[0] << " <SERVER_IP> <PORT> [BUFFER_SIZE]\n"
