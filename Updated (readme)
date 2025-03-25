@@ -1,0 +1,13 @@
+Client updated: 
+  error handling, 
+  added timeout, 
+  improve chuncked transfer, 
+  Impvove error or usage, 
+  make buffer and port dynamic, 
+  added clean up.
+Server updated:
+    improve chuncked transfer, 
+    Impvove error or usage, 
+    added clean up.
+    Add port reuse 
+
