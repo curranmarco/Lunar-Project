@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     if (argc < 3) {
         std::cerr << "Error: Missing arguments\n"
                   << "Usage: " << argv[0] << " <SERVER_IP> <PORT> [BUFFER_SIZE]\n"
-                  << "Example: " << argv[0] << " 127.0.0.1 8080\n";
+                  << "Example: " << argv[0] << " 127.0.0.1 50500\n";
         return -1;
     }
 
