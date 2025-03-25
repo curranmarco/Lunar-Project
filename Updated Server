@@ -1,0 +1,101 @@
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+/**
+ * TCP Server (With chunked transfer support)
+ * Usage: ./server <PORT> [BUFFER_SIZE]
+ * Example: ./server 50500 8192
+ * Configurable buffer size (default: 4096 bytes)
+ * Reusable address (SO_REUSEADDR)
+ * Handles large messages via chunked transfer
+ */
+int main(int argc, char *argv[]) {
+   // Check for Argument 
+   if (argc < 2) {
+        std::cerr << "Error: Missing arguments\n"
+                  << "Usage: " << argv[0] << " <PORT> [BUFFER_SIZE]\n"
+                  << "Example: " << argv[0] << " 50500\n";
+        return -1;
+    }
+
+   //Configuration
+    int port = atoi(argv[1]);
+    int buffer_size = (argc > 2) ? atoi(argv[2]) : 4096;
+
+    //Creation of socket
+    char *buffer = new char[buffer_size];
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd <= 0) {
+        std::cerr << "Error: Socket creation failed\n";
+        delete[] buffer;
+        return -1;
+    }
+
+    //Set up for address reuse
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    //Bind to port
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
+
+    if (bind(server_fd, (sockaddr *)&address, sizeof(address)) < 0) {
+        std::cerr << "Error: Bind failed (is port " << port << " available?)\n";
+        delete[] buffer;
+        return -1;
+    }
+
+    //Listen
+    if (listen(server_fd, 3) < 0) {
+        std::cerr << "Error: Listen failed\n";
+        delete[] buffer;
+        return -1;
+    }
+    std::cout << "Server listening on port " << port << std::endl;
+
+    // Handle client
+    sockaddr_in client_addr{};
+    socklen_t addrlen = sizeof(client_addr);
+    int new_socket = accept(server_fd, (sockaddr *)&client_addr, &addrlen);
+    if (new_socket < 0) {
+        std::cerr << "Error: Accept failed\n";
+        delete[] buffer;
+        return -1;
+    }
+
+    //Data reciption 
+    std::string request;
+    while (true) {
+        int bytes = recv(new_socket, buffer, buffer_size - 1, 0);
+        if (bytes <= 0) break;
+        buffer[bytes] = '\0';
+        request += buffer;
+    }
+
+    if (!request.empty()) {
+        std::cout << "Received: " << request << std::endl;
+    } else {
+        std::cerr << "Warning: Empty client request\n";
+    }
+
+    //Response
+    const char *response = "Hello from server";
+    for (int sent = 0; sent < strlen(response); ) {
+        int bytes = send(new_socket, response + sent, strlen(response) - sent, 0);
+        if (bytes <= 0) {
+            std::cerr << "Warning: Partial response sent\n";
+            break;
+        }
+        sent += bytes;
+    }
+
+    //Close
+    delete[] buffer;
+    close(new_socket);
+    close(server_fd);
+    return 0;
+}
