@@ -3,7 +3,7 @@
 using namespace std;
 
 int main() {
-    SocketClient client("134.226.213.137", 8080);
+    SocketClient client("127.0.0.1", 8080);
 
     if (!client.connectToServer()) return 1;
 

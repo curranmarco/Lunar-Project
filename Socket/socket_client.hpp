@@ -15,6 +15,8 @@ public:
     explicit SocketClient(const std::string& server_ip, int port);
     bool connectToServer();
     void closeConnection();
+    void sendData();
+    void receiveData();
     ~SocketClient();
 };
 

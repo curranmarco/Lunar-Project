@@ -34,3 +34,23 @@ void SocketClient::closeConnection() {
 SocketClient::~SocketClient() {
     closeConnection();
 }
+
+/**********************************************************************************/
+/**********************************************************************************/
+/*                                                                                */
+/*  The following functions are used to send and receive data to the server.      */
+/*                                                                                */
+/*  For the purpose of simplifying the code base and ensuring we can reuse code   */
+/*  blocks throughout the project, these functions will run continuously until    */
+/*  they receive a header with a stop instruction.                                */
+/*                                                                                */
+/**********************************************************************************/
+/**********************************************************************************/
+
+void SocketClient::sendData() {
+
+}
+
+void SocketClient::receiveData() {
+
+}
