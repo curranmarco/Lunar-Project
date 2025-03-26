@@ -7,5 +7,7 @@ int main() {
 
     if (!client.connectToServer()) return 1;
 
+    client.sendData();
+
     return 0;
 }
