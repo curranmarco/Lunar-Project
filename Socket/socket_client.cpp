@@ -28,7 +28,7 @@ bool SocketClient::connectToServer() {
 }
 
 void SocketClient::closeConnection() {
-    close(sock);
+    closesocket(sock);
 }
 
 SocketClient::~SocketClient() {
