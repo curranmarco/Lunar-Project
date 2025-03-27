@@ -17,17 +17,17 @@ public:
         return moon_connection.connectToServer();
     }
 
-    bool commandRover(int rover_id, float degrees, float meters) {
+    bool commandRover(float degrees, float meters) {
         CsvSender sender(moon_connection.getSocket());
-        std::string cmd = "MOVE," + std::to_string(rover_id) + "," 
+        std::string cmd = "MOVE," 
                         + std::to_string(degrees) + "," 
                         + std::to_string(meters);
         return sender.sendCsvData(cmd);
     }
 
-    bool requestSensorData(int rover_id, const std::vector<std::string>& sensors) {
+    bool requestSensorData(const std::vector<std::string>& sensors) {
         CsvSender sender(moon_connection.getSocket());
-        std::string request = "SENSOR_REQ," + std::to_string(rover_id);
+        std::string request = "SENSOR_REQ,";
         
         for (const auto& sensor : sensors) {
             request += "," + sensor;
