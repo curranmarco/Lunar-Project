@@ -40,8 +40,8 @@ bool SocketServer::acceptClient() {
 }
 
 void SocketServer::closeConnection() {
-    closesocket(client_socket);
-    closesocket(server_fd);
+    close(client_socket);
+    close(server_fd);
 }
 
 SocketServer::~SocketServer() {
