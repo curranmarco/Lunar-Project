@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <bitset>
 #include <cmath>
-
+#include <netinet/in.h> 
 class SocketClient {
 private:
     int sock;
@@ -24,6 +24,7 @@ public:
     std::string SynPacket();
     std::string AckPacket(u_int32_t isns);
     std::string FinPacket();
+    std::string DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload);
     ~SocketClient();
 };
 

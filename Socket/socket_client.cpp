@@ -95,6 +95,8 @@ std::string SocketClient::SynPacket() {
     return syn;
 }
 
+
+
 std::string SocketClient::AckPacket(u_int32_t isns) {
     std::string ack;
 
@@ -135,4 +137,30 @@ std::string SocketClient::FinPacket() {
     syn += flag.to_string() + " ";
 
     return syn;
+}
+std::string SocketClient::DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload) {
+    std::string data_packet;
+
+    std::bitset<16> source(ntohs(local_addr.sin_port));
+    data_packet += source.to_string() + " ";
+
+    std::bitset<16> dest(ntohs(server_addr.sin_port));
+    data_packet += dest.to_string() + " ";
+
+    std::bitset<32> seq(seq_num);
+    data_packet += seq.to_string() + " ";
+
+    std::bitset<32> ack(ack_num);
+    data_packet += ack.to_string() + " ";
+
+    std::bitset<32> flags(16);  // ACK = 0x10 = 00010000
+    data_packet += flags.to_string() + " ";
+
+    std::bitset<32> payload_size(payload.size());
+    data_packet += payload_size.to_string() + " ";
+
+    // Payload is raw string data, added as-is (no binary encoding here)
+    data_packet += payload;
+
+    return data_packet;
 }

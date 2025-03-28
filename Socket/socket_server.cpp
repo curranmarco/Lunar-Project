@@ -57,8 +57,34 @@ void SocketServer::sendData() {
     
 }
 
-void SocketServer::receiveData() {
+/*void SocketServer::receiveData() {
 
+}*/ 
+std::string SocketServer::DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload) {
+    std::string data_packet;
+
+    std::bitset<16> source(ntohs(local_addr.sin_port));
+    data_packet += source.to_string() + " ";
+
+    std::bitset<16> dest(ntohs(client_addr.sin_port));
+    data_packet += dest.to_string() + " ";
+
+    std::bitset<32> seq(seq_num);
+    data_packet += seq.to_string() + " ";
+
+    std::bitset<32> ack(ack_num);
+    data_packet += ack.to_string() + " ";
+
+    std::bitset<32> flags(16);  // ACK = 0x10 = 00010000
+    data_packet += flags.to_string() + " ";
+
+    std::bitset<32> payload_size(payload.size());
+    data_packet += payload_size.to_string() + " ";
+
+    // Payload is raw string data, added as-is (no binary encoding here)
+    data_packet += payload;
+
+    return data_packet;
 }
 
 std::string SocketServer::SynAckPacket(u_int32_t isnc) {
@@ -80,4 +106,46 @@ std::string SocketServer::SynAckPacket(u_int32_t isnc) {
     syn_ack += flag.to_string() + " ";
 
     return syn_ack;
+}
+std::string SocketServer::AckPacket(u_int32_t isns) {
+    std::string ack;
+
+    std::bitset<16> source(ntohs(local_addr.sin_port));
+    ack += source.to_string() + " ";
+
+    std::bitset<16> dest(ntohs(client_addr.sin_port));
+    ack += dest.to_string() + " ";
+
+    std::bitset<32> isnb(isns);             // fixed here
+    ack += isnb.to_string() + " ";
+
+    std::bitset<32> ack_num(isns + 1);      // fixed here
+    ack += ack_num.to_string() + " ";
+
+    std::bitset<32> flag(16);               // 16 = ACK
+    ack += flag.to_string() + " ";
+
+    return ack;
+}
+
+
+std::string SocketServer::FinPacket() {
+    std::string syn;
+
+    std::bitset<16> source(ntohs(local_addr.sin_port));
+    syn += source.to_string() + " ";
+
+    std::bitset<16> dest(ntohs(client_addr.sin_port));
+    syn += dest.to_string() + " ";
+
+    std::bitset<32> isn(rand()); 
+    syn += isn.to_string() + " ";
+
+    std::bitset<32> ack_num(0);
+    syn += ack_num.to_string() + " ";
+
+    std::bitset<32> flag(2);                                // 2 = 00000010 which is the flag for SYN
+    syn += flag.to_string() + " ";
+
+    return syn;
 }
