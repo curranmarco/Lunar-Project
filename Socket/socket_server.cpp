@@ -47,3 +47,5 @@ void SocketServer::closeConnection() {
 SocketServer::~SocketServer() {
     closeConnection();
 }
+
+/* ALL PACKET RELATED FUNCTIONS HAVE BEEN MOVED TO PACKET DIRECTORY*/
