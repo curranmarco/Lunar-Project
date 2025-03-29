@@ -8,6 +8,7 @@
 #include <bitset>
 #include <cmath>
 #include <netinet/in.h> 
+#include "packet.hpp"
 class SocketClient {
 private:
     int sock;
@@ -25,7 +26,10 @@ public:
     std::string AckPacket(u_int32_t isns);
     std::string FinPacket();
     std::string DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload);
+    bool verifyChecksum(const std::string& packet); 
+    uint16_t computeChecksum(const std::string& data);
     ~SocketClient();
+    bool SendPacket(int socket_fd, const std::string& packet);
 };
 
 #endif

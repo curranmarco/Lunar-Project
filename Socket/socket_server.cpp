@@ -149,3 +149,33 @@ std::string SocketServer::FinPacket() {
 
     return syn;
 }
+bool SocketServer::SendPacket(int socket_fd, const std::string& packet) {
+    ssize_t sent = send(socket_fd, packet.c_str(), packet.size(), 0);
+    return sent == (ssize_t)packet.size();
+}
+uint16_t SocketServer::computeChecksum(const std::string& data) {
+    uint32_t sum = 0;
+    for (size_t i = 0; i < data.size(); i += 2) {
+        uint16_t part = data[i];
+        if (i + 1 < data.size()) {
+            part = (part << 8) | data[i + 1];
+        }
+        sum += part;
+        if (sum > 0xFFFF) {
+            sum = (sum & 0xFFFF) + 1;  // wrap around
+        }
+    }
+    return ~sum & 0xFFFF;  // One's complement 
+}
+bool SocketServer::verifyChecksum(const std::string& packet) {
+    size_t lastSpace = packet.rfind(' ');
+    if (lastSpace == std::string::npos) return false;
+
+    std::string dataWithoutChecksum = packet.substr(0, lastSpace);
+    std::string checksumStr = packet.substr(lastSpace + 1);
+
+    uint16_t receivedChecksum = std::bitset<16>(checksumStr).to_ulong();
+    uint16_t computed = SocketServer::computeChecksum(dataWithoutChecksum);
+
+    return receivedChecksum == computed;
+}

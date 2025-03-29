@@ -92,6 +92,11 @@ std::string SocketClient::SynPacket() {
     std::bitset<32> flag(2);                                // 2 = 00000010 which is the flag for SYN
     syn += flag.to_string();
 
+    uint16_t checksum = computeChecksum(syn);
+    std::bitset<16> checksumBits(checksum);
+
+    syn += " " + checksumBits.to_string();
+
     return syn;
 }
 
@@ -115,6 +120,10 @@ std::string SocketClient::AckPacket(u_int32_t isns) {
     std::bitset<32> flag(16);                                // 16 = 00010000 which is the flag for ACK
     ack += flag.to_string() + " ";
 
+    uint16_t checksum = computeChecksum(ack);
+    std::bitset<16> checksumBits(checksum);
+
+    ack += " " + checksumBits.to_string();
     return ack;
 }
 
@@ -135,7 +144,11 @@ std::string SocketClient::FinPacket() {
 
     std::bitset<32> flag(2);                                // 2 = 00000010 which is the flag for SYN
     syn += flag.to_string() + " ";
+    
+    uint16_t checksum = computeChecksum(syn);
+    std::bitset<16> checksumBits(checksum);
 
+    syn += " " + checksumBits.to_string();
     return syn;
 }
 std::string SocketClient::DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload) {
@@ -162,5 +175,40 @@ std::string SocketClient::DataPacket(u_int32_t seq_num, u_int32_t ack_num, const
     // Payload is raw string data, added as-is (no binary encoding here)
     data_packet += payload;
 
+    uint16_t checksum = computeChecksum(data_packet);
+    std::bitset<16> checksumBits(checksum);
+
+    data_packet += " " + checksumBits.to_string();  
     return data_packet;
+}
+bool SocketClient::SendPacket(int socket_fd, const std::string& packet) {
+    ssize_t sent = send(socket_fd, packet.c_str(), packet.size(), 0);
+    return sent == (ssize_t)packet.size();
+}
+
+uint16_t SocketClient::computeChecksum(const std::string& data) {
+    uint32_t sum = 0;
+    for (size_t i = 0; i < data.size(); i += 2) {
+        uint16_t part = data[i];
+        if (i + 1 < data.size()) {
+            part = (part << 8) | data[i + 1];
+        }
+        sum += part;
+        if (sum > 0xFFFF) {
+            sum = (sum & 0xFFFF) + 1;  // wrap around
+        }
+    }
+    return ~sum & 0xFFFF;  // One's complement 
+}
+bool SocketClient::verifyChecksum(const std::string& packet) {
+    size_t lastSpace = packet.rfind(' ');
+    if (lastSpace == std::string::npos) return false;
+
+    std::string dataWithoutChecksum = packet.substr(0, lastSpace);
+    std::string checksumStr = packet.substr(lastSpace + 1);
+
+    uint16_t receivedChecksum = std::bitset<16>(checksumStr).to_ulong();
+    uint16_t computed = SocketClient::computeChecksum(dataWithoutChecksum);
+
+    return receivedChecksum == computed;
 }

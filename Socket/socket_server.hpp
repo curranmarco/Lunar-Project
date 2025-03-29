@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <bitset>
 #include <netinet/in.h> 
-
+#include "packet.hpp"
 
 class SocketServer {
 private:
@@ -25,13 +25,15 @@ public:
     void closeConnection();
     ~SocketServer();
     void sendData();
-    void receiveData();
+    //void receiveData();
     std::string SynPacket();
     std::string SocketServer::SynAckPacket(u_int32_t isnc); 
     std::string AckPacket(u_int32_t isns);
     std::string FinPacket();
     std::string DataPacket(u_int32_t seq_num, u_int32_t ack_num, const std::string& payload);
-
+    bool SendPacket(int socket_fd, const std::string& packet);
+    bool verifyChecksum(const std::string& packet); 
+    uint16_t computeChecksum(const std::string& data);
 };
 
 #endif
