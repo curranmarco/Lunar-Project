@@ -66,7 +66,7 @@ int main() {
 
         // Advance sequence number (simulate TCP-like behavior)
         seq_num++;
-        sleep(2);  // Wait before sending next
+        sleep(20);  // Wait before sending next
     }
 
   // --- Wait for FIN from server ---
