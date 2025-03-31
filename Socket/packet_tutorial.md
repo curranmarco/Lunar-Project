@@ -72,3 +72,35 @@ syn += ack_num.to_string() + " ";
 
 <br>
 
+5) _**Data Offset**_
+<br>
+How many 32 bit words are in the header. 
+For our purposes, all headers will have a fixed size of 5 words before data.
+This value should always be 5.
+This value takes up 4 bits of space.
+
+<br>
+
+5) _**Reserved**_
+<br>
+3 bits of space which are reserved for future use by convention. 
+This value is always 0.
+
+<br>
+
+6) _**Control Flags**_
+<br>
+Flags used to indicate the packet type.
+Syn, Syn-Ack, Ack, Data, Fin, etc.
+9 bit value.
+
+7) _**Checksum**_
+<br>
+Simple enough calculation. Take the binary values of each half word (16 bits) in the header and the data and add them together.
+The checksum is the one's complement of the sum, just flip all of the bits.
+
+8) _**Urgent Pointer**_
+<br>
+We are unlikely to use this field so it is probably safest to just set it to zero.
+It is used with the URG flag to indicate a piece of data that needs to be processed urgently but our data is simple enough and it is rarely used in modern TCP packets anyway.
+16 bit value.
