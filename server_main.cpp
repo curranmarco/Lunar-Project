@@ -1,73 +1,95 @@
 #include "Socket/socket_server.hpp"
 #include "Packet/packet_functions.hpp"
-
 #include <iostream>
-#include <bitset>
-#include <string>
-#include <cstring>  // for memset
-#include <unistd.h> // for read()
-
-void processPacket(const std::string& packet) {
-    std::cout << "\n[Raw Packet Received]\n" << packet << "\n";
-
-    if (!Packet::verifyChecksum(packet)) {
-        std::cerr << "❌ Invalid checksum. Packet corrupted.\n";
-        return;
-    }
-
-    std::cout << "✅ Checksum valid.\n";
-
-    // Split packet to extract payload
-    size_t firstPayloadBit = 16 + 1 + 16 + 1 + 32 + 1 + 32 + 1 + 32 + 1 + 32 + 1; // Up to payload
-    std::string payload_and_checksum = packet.substr(firstPayloadBit);
-    size_t last_space = payload_and_checksum.rfind(' ');
-    if (last_space == std::string::npos) {
-        std::cerr << "❌ Payload extraction failed.\n";
-        return;
-    }
-
-    std::string payload = payload_and_checksum.substr(0, last_space);
-
-    if (payload.length() < 20) {
-        std::cerr << "❌ Payload too short to extract data.\n";
-        return;
-    }
-
-    std::string location_bits = payload.substr(0, 4);
-    std::string moisture_bits = payload.substr(4, 16);
-
-    int location_id = std::bitset<4>(location_bits).to_ulong();
-    int moisture_value = std::bitset<16>(moisture_bits).to_ulong();
-
-    std::cout << "\n[Sensor Data Extracted]\n";
-    std::cout << "Location ID:     " << location_id << "\n";
-    std::cout << "Moisture Value:  " << moisture_value << "\n";
-}
+#include <cstring>
+#include <unistd.h>
 
 int main() {
-    int port = 8080; // Port to listen on
-    SocketServer server(port);
-
-    if (!server.startListening()) {
+    SocketServer server(8080);
+    if (!server.startListening() || !server.acceptClient()) {
         return 1;
     }
 
-    if (!server.acceptClient()) {
+    int client_socket = server.getClientSocket();
+    Packet packet(8080, 1234);  // Server's port, then client port
+
+    char buffer[4096] = {0};
+
+    // --- 1. Wait for SYN ---
+    int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    std::string syn(buffer, bytes_received);
+    std::cout << "[Server] Received SYN:\n" << syn << "\n";
+
+    if (!packet.verifyChecksum(syn)) {
+        std::cerr << "[Server] Invalid SYN checksum.\n";
+        server.closeConnection();
         return 1;
     }
 
-    char buffer[1024];
+    // --- 2. Send SYN-ACK ---
+    std::string synack = packet.SynAckPacket(0); // You could extract seq from SYN
+    packet.SendPacket(client_socket, synack);
+    std::cout << "[Server] Sent SYN-ACK:\n" << synack << "\n";
+
+    // --- 3. Wait for final ACK ---
     memset(buffer, 0, sizeof(buffer));
+    bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    std::string ack(buffer, bytes_received);
+    std::cout << "[Server] Received ACK:\n" << ack << "\n";
 
-    ssize_t bytes_received = read(server.getClientSocket(), buffer, sizeof(buffer));
-    if (bytes_received <= 0) {
-        std::cerr << "❌ No data received.\n";
+    if (!packet.verifyChecksum(ack)) {
+        std::cerr << "[Server] Invalid ACK checksum.\n";
+        server.closeConnection();
         return 1;
     }
 
-    std::string received_packet(buffer, bytes_received);
-    processPacket(received_packet);
+    std::cout << "[Server] Handshake complete.\n\n";
 
+    // --- 4. Receive and ACK Data Packets ---
+    int packet_count = 0;
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+        bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) {
+            std::cerr << "[Server] Client disconnected or error.\n";
+            break;
+        }
+
+        std::string data_packet(buffer, bytes_received);
+        std::cout << "[Server] Received DATA:\n" << data_packet << "\n";
+
+        if (!packet.verifyChecksum(data_packet)) {
+            std::cerr << "[Server] Invalid DATA checksum.\n";
+            break;
+        }
+
+        // --- Respond with ACK ---
+        std::string ack_response = packet.AckPacket(0);
+        packet.SendPacket(client_socket, ack_response);
+        std::cout << "[Server] Sent ACK.\n\n";
+
+        packet_count++;
+        if (packet_count >= 5) break;  // Stop after 5 data packets
+    }
+
+    // --- 5. Send FIN ---
+    std::string fin = packet.FinPacket();
+    packet.SendPacket(client_socket, fin);
+    std::cout << "[Server] Sent FIN.\n";
+
+    // --- 6. Wait for client's final ACK ---
+    memset(buffer, 0, sizeof(buffer));
+    bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    std::string final_ack(buffer, bytes_received);
+    std::cout << "[Server] Received final ACK:\n" << final_ack << "\n";
+
+    if (!packet.verifyChecksum(final_ack)) {
+        std::cerr << "[Server] Final ACK checksum invalid.\n";
+    }
+
+    // --- Done ---
+    server.closeConnection();
+    std::cout << "[Server] Connection closed cleanly.\n";
     return 0;
 }
 

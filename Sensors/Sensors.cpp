@@ -32,6 +32,7 @@ std::string Sensor::getLocationName() const {
 std::string Sensor::getBinaryPayload() const {
     std::bitset<4> loc_bits(location_id);
     std::bitset<16> moisture_bits(last_reading);  // Use the stored reading
-    return loc_bits.to_string() + moisture_bits.to_string();
+    std::bitset<12> padding(0);  // 12-bit zero padding
+    return loc_bits.to_string() + moisture_bits.to_string() + padding.to_string();
 }
 
