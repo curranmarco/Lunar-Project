@@ -94,6 +94,7 @@ Flags used to indicate the packet type.
 Syn, Syn-Ack, Ack, Data, Fin, etc.
 9 bit value.
 
+ 00000010- SYN, 00010000 - ACK, 000000001 - FIN
 7) _**Checksum**_
 <br>
 Simple enough calculation. Take the binary values of each half word (16 bits) in the header and the data and add them together.
