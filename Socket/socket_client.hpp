@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <bitset>
 #include <cmath>
+#include <vector>
 
 class SocketClient {
 private:

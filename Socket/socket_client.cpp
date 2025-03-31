@@ -75,22 +75,49 @@ void SocketClient::receiveData() {
 
 std::string SocketClient::SynPacket() {
     std::string syn;
+    std::bitset<5 * 32> header;
 
+    //Source Port
     std::bitset<16> source(ntohs(local_addr.sin_port));
-    syn += source.to_string() + " ";
+    syn += source.to_string();
 
+    // Destination Port
     std::bitset<16> dest(ntohs(server_addr.sin_port));
-    syn += dest.to_string() + " ";
+    syn += dest.to_string();
 
+    // Sequence Number
     isn = (rand() % ((int)exp2(32) - 1));
     std::bitset<32> isnb(isn);
-    syn += isnb.to_string() + " ";
+    syn += isnb.to_string();
 
+    // Ack Number
     std::bitset<32> ack_num(0);
-    syn += ack_num.to_string() + " ";
+    syn += ack_num.to_string();
 
+    // Data Offset
+    std::bitset<4> offset(5);                               // 5 Words in header
+    syn += offset.to_string();
+
+    // Reserved Space
+    std::bitset<3> res(0);
+    syn += res.to_string();
+
+    // Flags
     std::bitset<32> flag(2);                                // 2 = 00000010 which is the flag for SYN
     syn += flag.to_string();
+
+    // Window Size
+    std::bitset<32> window(128);                            // 1024 bits / 8
+    syn += ack_num.to_string();
+
+    // Checksum
+    std::bitset<16> sum(syn);
+
+    for (int i = 0; i < 16; i++)
+        sum[i] = 0;
+    
+    
+
 
     return syn;
 }
@@ -135,4 +162,22 @@ std::string SocketClient::FinPacket() {
     syn += flag.to_string() + " ";
 
     return syn;
+}
+
+std::bitset<16> headerChecksum(std::string header){
+    uint16_t count = 0;
+    std::bitset<16> sum;
+    std::vector<std::string> half_words;
+    std::string half_word;
+
+    for (char bit:header) {
+        half_word += bit;
+        count++;
+
+        if (count > 14) {
+            half_words.push_back(half_word);
+            count = 0;
+            half_word = "";
+        }
+    }
 }
