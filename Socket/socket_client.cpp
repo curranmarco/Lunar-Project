@@ -47,6 +47,11 @@ void SocketClient::closeConnection() {
 SocketClient::~SocketClient() {
     closeConnection();
 }
+int SocketClient::getSocket() const {
+    return sock;
+}
+
+
 
 /**********************************************************************************/
 /**********************************************************************************/

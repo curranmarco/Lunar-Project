@@ -8,7 +8,7 @@
 #include <bitset>
 #include <cmath>
 #include <netinet/in.h> 
-#include "packet.hpp"
+#include "../Packet/packet_functions.hpp" 
 class SocketClient {
 private:
     int sock;
@@ -25,6 +25,8 @@ public:
    
     ~SocketClient();
     bool SendPacket(int socket_fd, const std::string& packet);
+    int getSocket() const;
+
 };
 
 #endif

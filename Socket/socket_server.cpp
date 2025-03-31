@@ -47,5 +47,8 @@ void SocketServer::closeConnection() {
 SocketServer::~SocketServer() {
     closeConnection();
 }
+int SocketServer::getClientSocket() const {
+    return client_socket;
+}
 
 /* ALL PACKET RELATED FUNCTIONS HAVE BEEN MOVED TO PACKET DIRECTORY*/

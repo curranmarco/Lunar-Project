@@ -14,12 +14,12 @@ public:
     std::string AckPacket(uint32_t isns);
     std::string FinPacket();
     std::string DataPacket(uint32_t seq_num, uint32_t ack_num, const std::string& payload);
-
+    static uint16_t computeChecksum(const std::string& data);
     bool SendPacket(int socket_fd, const std::string& packet);
-    bool verifyChecksum(const std::string& packet);
+    static bool verifyChecksum(const std::string& packet);
 
 private:
-    uint16_t computeChecksum(const std::string& data);
+    
 
     uint16_t source_port;
     uint16_t dest_port;

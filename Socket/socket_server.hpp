@@ -7,7 +7,8 @@
 #include <unistd.h>
 #include <bitset>
 #include <netinet/in.h> 
-#include "packet.hpp"
+#include "../Packet/packet_functions.hpp"   
+
 
 
 class Packet; 
@@ -27,7 +28,7 @@ public:
     bool acceptClient();
     void closeConnection();
     ~SocketServer();
-  
+    int getClientSocket() const;
 }; 
 #endif
 
