@@ -14,7 +14,6 @@ private:
     int sock;
     struct sockaddr_in server_addr;
     struct sockaddr_in local_addr;
-    u_int32_t isn;
 
 public:
     explicit SocketClient(const std::string& server_ip, int port);
@@ -23,8 +22,8 @@ public:
     void sendData();
     void receiveData();
     std::string SynPacket();
-    std::string AckPacket(u_int32_t isns);
-    std::string FinPacket();
+    std::string AckPacket(u_int32_t sns, u_int32_t size);
+    std::string FinPacket(u_int32_t sns, u_int32_t size);
     std::bitset<16> headerChecksum(std::string header);
     ~SocketClient();
 };
