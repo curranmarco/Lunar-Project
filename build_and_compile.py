@@ -1,54 +1,31 @@
+import os
 import subprocess
 
-# Output binaries
-client_binary = "client_exec"
-server_binary = "server_exec"
-
-# Common include paths
-include_paths = [
-    "-IPacket",
-    "-ISensors",
-    "-ISocket",
-    "-ILocation_Map"
-]
-
-# Compilation commands
-client_compile = [
-    "g++", "-std=c++17",
-    *include_paths,
-    "Packet/packet_functions.cpp",
-    "Sensors/Sensors.cpp",
-    "Location_Map/location_map.cpp",
-    "Socket/socket_client.cpp",
+# Compilation settings
+cpp_files = [
     "client_main.cpp",
-    "-o", client_binary
-]
-
-server_compile = [
-    "g++", "-std=c++17",
-    *include_paths,
     "Packet/packet_functions.cpp",
-    "Location_Map/location_map.cpp",
-    "Socket/socket_server.cpp",
-    "server_main.cpp",
-    "-o", server_binary
+    "Socket/socket_client.cpp"
 ]
 
-def compile_target(name, command):
-    print(f"🔧 Compiling {name}...")
+# Output executable name
+output_exec = "actuator_client"
 
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+# Command
+compile_cmd = ["g++", "-std=c++17", "-o", output_exec] + cpp_files
 
-    if result.returncode != 0:
-        print(f"Compilation of {name} failed:\n")
-        print(result.stderr)
-    else:
-        print(f"{name} compiled successfully! Binary: ./{name}")
+# Include directories (assuming relative paths)
+include_dirs = ["-I.", "-IPacket", "-ISocket"]
+compile_cmd += include_dirs
 
-def main():
-    compile_target(client_binary, client_compile)
-    compile_target(server_binary, server_compile)
+# Run the compilation
+print("🔧 Compiling actuator client...")
+result = subprocess.run(compile_cmd, capture_output=True, text=True)
 
-if __name__ == "__main__":
-    main()
-
+if result.returncode == 0:
+    print("✅ Compilation successful.")
+    print("🚀 Running actuator client...\n")
+    subprocess.run([f"./{output_exec}"])
+else:
+    print("❌ Compilation failed:")
+    print(result.stderr)
