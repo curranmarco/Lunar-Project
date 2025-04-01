@@ -3,6 +3,7 @@
 
 #include "Packet/packet_functions.hpp"
 #include "Socket/socket_client.hpp"
+#include "Socket/socket_server.hpp"
 
 #include <iostream>
 #include <bitset>
@@ -34,7 +35,27 @@ std::string extractPayload(const std::string& packet) {
     return packet.substr(payload_start);
 }
 
+// Start peer listener (runs in parallel)
+void peerServerThread() {
+    SocketServer peer_server(9000);  // Choose an open port
+    peer_server.startListening();
+    peer_server.acceptClient();
+
+    int peer_sock = peer_server.getClientSocket();
+    char buf[1024] = {0};
+    while (true) {
+        ssize_t bytes = recv(peer_sock, buf, sizeof(buf), 0);
+        if (bytes > 0) {
+            std::string msg(buf, bytes);
+            std::cout << "\n🔄 [Peer] Received from other client: " << msg << "\n";
+        }
+    }
+}
+
+
 int main() {
+    std::thread peer_thread(peerServerThread);
+    peer_thread.detach();
     srand(static_cast<unsigned>(time(nullptr)));
 
     std::string server_ip = "127.0.0.1";
