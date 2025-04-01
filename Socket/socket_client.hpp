@@ -25,6 +25,7 @@ public:
     std::string SynPacket();
     std::string AckPacket(u_int32_t isns);
     std::string FinPacket();
+    std::bitset<16> headerChecksum(std::string header);
     ~SocketClient();
 };
 

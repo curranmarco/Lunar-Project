@@ -110,14 +110,13 @@ std::string SocketClient::SynPacket() {
     std::bitset<32> window(128);                            // 1024 bits / 8
     syn += ack_num.to_string();
 
-    // Checksum
-    std::bitset<16> sum(syn);
+    // Urgent Pointer (Not used so just 0)
+    std::bitset<16> urg(0);
 
-    for (int i = 0; i < 16; i++)
-        sum[i] = 0;
-    
-    
+    // Checksum (Take as zero for sum, hence 2 urg strings concatenated)
+    std::bitset<16> check = SocketClient::headerChecksum(syn + urg.to_string() + urg.to_string()); 
 
+    syn += check.to_string() + urg.to_string();
 
     return syn;
 }
@@ -164,7 +163,7 @@ std::string SocketClient::FinPacket() {
     return syn;
 }
 
-std::bitset<16> headerChecksum(std::string header){
+std::bitset<16> SocketClient::headerChecksum(std::string header) {
     uint16_t count = 0;
     std::bitset<16> sum;
     std::vector<std::string> half_words;
@@ -174,10 +173,34 @@ std::bitset<16> headerChecksum(std::string header){
         half_word += bit;
         count++;
 
-        if (count > 14) {
+        if (count == 16) {
             half_words.push_back(half_word);
             count = 0;
             half_word = "";
         }
     }
+    std::bitset<16> A(half_words[0]);
+    std::bitset<16> B;
+    bool cin = 0;
+
+    for (int j = 1; j < half_words.size(); j++) {
+        B = std::bitset<16>(half_words[j]);
+        for (int i = 0; i < A.size(); i++) {
+            bool sum_bit = A[i] ^ B[i] ^ cin;
+            bool carry_out = (A[i] & B[i]) | (B[i] & cin) | (A[i] & cin);
+
+            A[i] = sum_bit;  
+            cin = carry_out; 
+        }
+    }
+
+    if (cin) {
+        for (int i = 0; i < A.size() && cin; i++) {
+            bool sum_bit = A[i] ^ cin;
+            cin = A[i] & cin;
+            A[i] = sum_bit;
+        }
+    }
+
+    return ~A;
 }
