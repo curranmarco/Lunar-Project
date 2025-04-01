@@ -31,6 +31,7 @@ public:
     void receiveData();
     std::string SocketServer::SynAckPacket(u_int32_t snc, u_int32_t size);
     std::bitset<16> headerChecksum(std::string header);
+    void handshake(std::string syn);
 };
 
 #endif

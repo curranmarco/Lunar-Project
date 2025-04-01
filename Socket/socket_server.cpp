@@ -54,16 +54,16 @@ bool SocketServer::handleConnections() {
         }
 
         for (int client_socket : client_sockets) {
-            if (FD_ISSET(client_socket, &read_set)) {
-                char buffer[1024];
-                int bytes_read = recv(client_socket, buffer, sizeof(buffer), 0);
+            if (FD_ISSET(client_socket, &read_set)) {       // Is there anything to read?
+                std::string buffer(1024, '\0');
+                int bytes_read = recv(client_socket, &buffer[0], buffer.size(), 0);
                 if (bytes_read <= 0) {
                     close(client_socket);
                     FD_CLR(client_socket, &master_set);
                     client_sockets.erase(::std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end());
                     std::cout << "Client disconnected.\n";
                 } else {
-                    buffer[bytes_read] = '\0';
+                    buffer.resize(bytes_read);
                     std::cout << "Received: " << buffer << std::endl;
                 }
             }
@@ -180,4 +180,8 @@ std::bitset<16> SocketServer::headerChecksum(std::string header) {
     }
 
     return ~A;
+}
+
+void SocketServer::handshake(std::string syn) {
+
 }
