@@ -25,9 +25,8 @@ std::string generateDataPayload(bool isMoving, int speed = -1) {
 }
 
 std::string extractFlags(const std::string& packet) {
-    // Skip src (16), dst (16), seq (32), ack (32), data_offset+reserved (4+3)
     size_t flags_start = 16 + 16 + 32 + 32 + 4 + 3;
-    return packet.substr(flags_start, 9);  // Get 9-bit flags
+    return packet.substr(flags_start, 9);
 }
 
 std::string extractPayload(const std::string& packet) {
@@ -35,10 +34,10 @@ std::string extractPayload(const std::string& packet) {
     return packet.substr(payload_start);
 }
 
-// Start peer listener (runs in parallel)
 void peerServerThread() {
-    SocketServer peer_server(9000);  // Choose an open port
+    SocketServer peer_server(9000);
     peer_server.startListening();
+    std::cout << "📡 [Peer Server] Listening for peer connections on port 9000...\n";
     peer_server.acceptClient();
 
     int peer_sock = peer_server.getClientSocket();
@@ -52,13 +51,12 @@ void peerServerThread() {
     }
 }
 
-
 int main() {
     std::thread peer_thread(peerServerThread);
     peer_thread.detach();
     srand(static_cast<unsigned>(time(nullptr)));
 
-    std::string server_ip = "127.0.0.1";
+    std::string server_ip = "192.168.221.1";
     int server_port = 8080;
     uint16_t source_port = 0;
     uint16_t dest_port = 8080;
@@ -72,8 +70,13 @@ int main() {
     Packet packet(source_port, dest_port);
     uint32_t seq = rand();
 
-    char buffer[1024];
+    // --- Send SYN Packet ---
+    std::string syn = packet.SynPacket();
+    packet.SendPacket(client.getSocket(), syn);
+    std::cout << "[Client] Sent SYN:\n" << syn << "\n\n";
+    //packet.SendPacket(client.getSocket(), packet.DataPacket(seq, 0, "11111111", 0x02));
 
+    char buffer[1024];
     std::cout << "🚀 Actuator client started. Waiting for instructions...\n";
 
     while (true) {

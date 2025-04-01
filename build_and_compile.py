@@ -5,7 +5,8 @@ import subprocess
 cpp_files = [
     "client_main.cpp",
     "Packet/packet_functions.cpp",
-    "Socket/socket_client.cpp"
+    "Socket/socket_client.cpp",
+    "Socket/socket_server.cpp"
 ]
 
 # Output executable name
