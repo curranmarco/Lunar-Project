@@ -34,7 +34,7 @@ std::string extractPayload(const std::string& packet) {
     return packet.substr(payload_start);
 }
 
-void peerServerThread() {
+void peerServerThread(Packet& packet, int server_socket, uint32_t& seq) {
     SocketServer peer_server(9000);
     peer_server.startListening();
     std::cout << "📡 [Peer Server] Listening for peer connections on port 9000...\n";
@@ -47,13 +47,21 @@ void peerServerThread() {
         if (bytes > 0) {
             std::string msg(buf, bytes);
             std::cout << "\n🔄 [Peer] Received from other client: " << msg << "\n";
+            // 👉 Prepare STOP command payload
+            std::string stop_payload = "00000000" + std::string(24, '0'); // MOVE flag OFF, speed zero
+            std::string stop_packet = packet.DataPacket(seq++, 0, stop_payload, 0x10); // flag 0x10 = ACK
+
+            // 👉 Send it to server
+            if (packet.SendPacket(server_socket, stop_packet)) {
+                std::cout << "🛑 Sent STOP command to server in response to peer.\n";
+            } else {
+                std::cerr << "❌ Failed to send STOP packet to server.\n";
+            }
         }
     }
 }
 
 int main() {
-    std::thread peer_thread(peerServerThread);
-    peer_thread.detach();
     srand(static_cast<unsigned>(time(nullptr)));
 
     std::string server_ip = "192.168.221.1";
@@ -69,6 +77,9 @@ int main() {
 
     Packet packet(source_port, dest_port);
     uint32_t seq = rand();
+
+    std::thread peer_thread(peerServerThread, std::ref(packet), client.getSocket(), std::ref(seq));
+    peer_thread.detach();
 
     // --- Send SYN Packet ---
     std::string syn = packet.SynPacket();
