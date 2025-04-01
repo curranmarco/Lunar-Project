@@ -35,23 +35,35 @@ void listenForResponse(int client_socket, bool expectSpeed) {
         return;
     }
 
-    std::string received_packet(buffer, bytes_received);
-    std::cout << "\n📩 Response packet received:\n" << received_packet << "\n";
+    std::string packet(buffer, bytes_received);
+    std::cout << "\n📩 Response packet received:\n" << packet << "\n";
 
-    if (!Packet::verifyChecksum(received_packet)) {
+    // Extract and temporarily zero out checksum field for verification
+    size_t checksum_pos = 16 + 16 + 32 + 32 + 4 + 3 + 9;
+    std::string checksum_bits = packet.substr(checksum_pos, 16);
+    std::string packet_for_checksum = packet;
+    packet_for_checksum.replace(checksum_pos, 16, std::string(16, '0'));
+
+    uint16_t received_checksum = std::bitset<16>(checksum_bits).to_ulong();
+    uint16_t calculated_checksum = Packet::computeChecksum(packet_for_checksum);
+
+    std::cout << "[VerifyChecksum] Packet Length:  " << packet.length() << " bits\n";
+    std::cout << "[VerifyChecksum] Data Bits:      " << packet_for_checksum << "\n";
+    std::cout << "[VerifyChecksum] Checksum Bits:  " << checksum_bits << "\n";
+    std::cout << "[VerifyChecksum] Received (dec): " << received_checksum << "\n";
+    std::cout << "[VerifyChecksum] Calculated:     " << calculated_checksum << "\n";
+    std::cout << "[VerifyChecksum] Match?          " << (received_checksum == calculated_checksum ? "YES" : " NO") << "\n";
+
+    if (received_checksum != calculated_checksum) {
         std::cerr << "❌ Invalid checksum.\n";
         return;
     }
-    
+
     std::cout << "✅ Checksum valid.\n";
 
-    size_t payload_start = 16 + 1 + 16 + 1 + 32 + 1 + 32 + 1 + 32 + 1 + 32 + 1;
-    std::string payload = received_packet.substr(payload_start);
-    size_t space_pos = payload.find(' ');
-    if (space_pos != std::string::npos) {
-        payload = payload.substr(0, space_pos);
-    }
-
+    // Extract payload
+    size_t payload_start = checksum_pos + 16;
+    std::string payload = packet.substr(payload_start);
     std::cout << "📦 Payload: " << payload << "\n";
 
     if (expectSpeed && payload.length() >= 32) {
@@ -60,6 +72,7 @@ void listenForResponse(int client_socket, bool expectSpeed) {
         std::cout << "🚀 Speed value extracted: " << speed_value << "\n";
     }
 }
+
 
 int main() {
     srand(static_cast<unsigned>(time(nullptr)));

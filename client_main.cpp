@@ -24,27 +24,14 @@ std::string generateDataPayload(bool isMoving, int speed = -1) {
 }
 
 std::string extractFlags(const std::string& packet) {
-    std::istringstream ss(packet);
-    std::string field;
-    int count = 0;
-    while (std::getline(ss, field, ' ')) {
-        if (count == 4) {
-            return field.substr(7, 9); // fixed: correct 9-bit flag slice
-        }
-        count++;
-    }
-    return "";
+    // Skip src (16), dst (16), seq (32), ack (32), data_offset+reserved (4+3)
+    size_t flags_start = 16 + 16 + 32 + 32 + 4 + 3;
+    return packet.substr(flags_start, 9);  // Get 9-bit flags
 }
 
 std::string extractPayload(const std::string& packet) {
-    std::istringstream ss(packet);
-    std::string field;
-    int count = 0;
-    while (std::getline(ss, field, ' ')) {
-        if (count >= 6) return field;
-        count++;
-    }
-    return "";
+    size_t payload_start = 16 + 16 + 32 + 32 + 4 + 3 + 9 + 16;
+    return packet.substr(payload_start);
 }
 
 int main() {
