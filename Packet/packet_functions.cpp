@@ -4,13 +4,15 @@
 #include <iostream>
 Packet::Packet(uint16_t source, uint16_t dest)
     : source_port(source), dest_port(dest) {}
-
-    #include <iostream>  // make sure this is at the top
     
    
 
 
     std::string Packet::SynPacket() {
+        if (!isn_initialized) {
+            initial_seq_num = rand();  // generate once
+            isn_initialized = true;
+        }
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
         uint32_t seq_num = 10;  // generate as number so we can show both
@@ -32,7 +34,7 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string syn_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
 
     
-;
+
     
         return syn_packet;
     }
@@ -40,10 +42,14 @@ Packet::Packet(uint16_t source, uint16_t dest)
     
 
     std::string Packet::SynAckPacket(uint32_t isnc) {
+
+        if (!isn_initialized) {
+            initial_seq_num = rand();  // Generate server's ISN once
+            isn_initialized = true;
+        }
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
-        uint32_t seq_num = rand();
-        std::string seq  = std::bitset<32>(seq_num).to_string();
+        std::string seq  = std::bitset<32>(initial_seq_num).to_string();
         std::string ack  = std::bitset<32>(isnc).to_string();  // use client seq + 1 ideally
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
@@ -66,10 +72,14 @@ Packet::Packet(uint16_t source, uint16_t dest)
     std::string Packet::AckPacket(uint32_t isns) {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
-        uint32_t seq_num = rand();
-        std::string seq  = std::bitset<32>(seq_num).to_string();
-        uint32_t ack_num = last_seq_num + 1;
-        std::string ack  = std::bitset<32>(ack_num).to_string();
+
+
+
+        std::string seq  = std::bitset<32>(last_seq_num).to_string();
+
+    // Acknowledge the sequence number we received from peer + 1 (for SYN/FIN) or data length
+        uint32_t ack_num = isns + 1;  // You can make this smarter if you know payload length
+        std::string ack  = std::bitset<32>(ack_num).to_string();;
     
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
@@ -93,12 +103,13 @@ Packet::Packet(uint16_t source, uint16_t dest)
     }
     
 
-
     std::string Packet::FinPacket() {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
-        std::string seq  = std::bitset<32>(rand()).to_string();
-        std::string ack  = std::bitset<32>(0).to_string();
+    
+        // Use current sequence number and increment after sending FIN
+        std::string seq  = std::bitset<32>(last_seq_num).to_string();
+        std::string ack  = std::bitset<32>(last_ack_num).to_string(); // optional, use if responding
     
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
@@ -109,27 +120,27 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
         std::string urgent = std::bitset<16>(0).to_string();
     
-        // ✅ Include full header in checksum calculation
         std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
     
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        // ✅ Final packet includes all fields in order
         std::string fin_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
     
-        // Optional: Debug output
+        // TCP behavior: FIN consumes one sequence number
+        last_seq_num += 1;
+    
         return fin_packet;
     }
     
     std::string Packet::DataPacket(uint32_t seq_num, uint32_t ack_num, const std::string& payload) {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
-        std::string seq  = std::bitset<32>(seq_num).to_string();
-        if (ack_num == 0) {
-            ack_num = last_seq_num + 1;
-        }
     
+        if (seq_num == 0) seq_num = last_seq_num;  // Use last sequence number if not provided
+        if (ack_num == 0) ack_num = last_ack_num;  // Use last ack if not provided
+    
+        std::string seq  = std::bitset<32>(seq_num).to_string();
         std::string ack  = std::bitset<32>(ack_num).to_string();
     
         std::string data_offset = std::bitset<4>(5).to_string();
@@ -149,8 +160,9 @@ Packet::Packet(uint16_t source, uint16_t dest)
     
         std::string final_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent + payload;
     
-        // Optional: print packet size
-
+        // Update internal tracking
+        last_seq_num = seq_num + payload.size() / 8;  // One byte per 8 bits of payload
+        last_ack_num = ack_num;
     
         return final_packet;
     }

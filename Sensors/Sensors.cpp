@@ -35,4 +35,7 @@ std::string Sensor::getBinaryPayload() const {
     std::bitset<12> padding(0);  // 12-bit zero padding
     return loc_bits.to_string() + moisture_bits.to_string() + padding.to_string();
 }
+int Sensor::getLastValue() const {
+    return last_value;
+}
 

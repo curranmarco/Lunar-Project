@@ -13,7 +13,8 @@ public:
     int getLocationID() const;
     std::string getLocationName() const;
     std::string getBinaryPayload() const;
-
+    int getLastValue() const;
+    int last_value;
 private:
     std::string sensor_name;
     int min_value;

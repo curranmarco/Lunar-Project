@@ -20,6 +20,9 @@ public:
     void parsePacket(const std::string& packet); 
 private:
     
+    uint32_t initial_seq_num = 0;
+    bool isn_initialized = false;
+
     uint32_t last_seq_num = 0;
     uint32_t last_ack_num = 0;
     uint16_t source_port;
