@@ -6,6 +6,9 @@ Packet::Packet(uint16_t source, uint16_t dest)
     : source_port(source), dest_port(dest) {}
 
     #include <iostream>  // make sure this is at the top
+    
+   
+
 
     std::string Packet::SynPacket() {
         std::string src  = std::bitset<16>(source_port).to_string();
@@ -17,25 +20,19 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x02).to_string();  // SYN flag
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string urgent = std::bitset<16>(0).to_string();
+        std::string window_size = std::bitset<16>(0x24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
-    
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
+
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        std::string syn_packet = src + dst + seq + ack + offset_and_flags + checksum_bits;
+        std::string syn_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
+
     
-        // Debug printing
-        std::cout << "[SYN Packet Breakdown]\n";
-        std::cout << "Source Port     : " << src  << " (" << source_port << ")\n";
-        std::cout << "Destination Port: " << dst  << " (" << dest_port  << ")\n";
-        std::cout << "Sequence Number : " << seq  << " (" << seq_num    << ")\n";
-        std::cout << "Acknowledgment  : " << ack  << " (0)\n";
-        std::cout << "Offset+Flags    : " << offset_and_flags << " (0x" 
-                  << std::hex << std::bitset<16>(offset_and_flags).to_ulong() << std::dec << ")\n";
-        std::cout << "Checksum        : " << checksum_bits << " (" << checksum << ")\n";
-        std::cout << "Full Packet     : " << syn_packet << "\n\n";
+;
     
         return syn_packet;
     }
@@ -52,34 +49,49 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x12).to_string(); // SYN + ACK
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string urgent = std::bitset<16>(0).to_string();
+        std::string window_size = std::bitset<16>(0x24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
+
+       
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        return src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
+
     }
     
-
     std::string Packet::AckPacket(uint32_t isns) {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
         uint32_t seq_num = rand();
         std::string seq  = std::bitset<32>(seq_num).to_string();
-        std::string ack  = std::bitset<32>(isns).to_string();
+        uint32_t ack_num = last_seq_num + 1;
+        std::string ack  = std::bitset<32>(ack_num).to_string();
+    
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x10).to_string(); // ACK only
         std::string offset_and_flags = data_offset + reserved + flags;
-        std::string checksum_placeholder = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string window_size = std::bitset<16>(0x24).to_string();
+        std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent = std::bitset<16>(0).to_string();
+    
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
+    
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        std::string ack_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
+    
+       
+    
+        return ack_packet;
     }
+    
 
 
     std::string Packet::FinPacket() {
@@ -87,47 +99,63 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string dst  = std::bitset<16>(dest_port).to_string();
         std::string seq  = std::bitset<32>(rand()).to_string();
         std::string ack  = std::bitset<32>(0).to_string();
+    
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x01).to_string(); // FIN
         std::string offset_and_flags = data_offset + reserved + flags;
-        std::string checksum_placeholder = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string window_size = std::bitset<16>(0x24).to_string();
+        std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent = std::bitset<16>(0).to_string();
+    
+        // ✅ Include full header in checksum calculation
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
+    
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        // ✅ Final packet includes all fields in order
+        std::string fin_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent;
+    
+        // Optional: Debug output
+        return fin_packet;
     }
-
+    
     std::string Packet::DataPacket(uint32_t seq_num, uint32_t ack_num, const std::string& payload) {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
         std::string seq  = std::bitset<32>(seq_num).to_string();
+        if (ack_num == 0) {
+            ack_num = last_seq_num + 1;
+        }
+    
         std::string ack  = std::bitset<32>(ack_num).to_string();
+    
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x10).to_string(); // ACK
         std::string offset_and_flags = data_offset + reserved + flags;
-        //std::string length = std::bitset<32>(payload.size()).to_string();
+    
+        std::string window_size = std::bitset<16>(0x24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent = std::bitset<16>(0).to_string();
     
-        // Convert payload to bitstring
-        std::string payload_bits = payload; 
-        // Pad to 32-bit boundary
-        //size_t pad = (32 - (payload_bits.size() % 32)) % 32;
-        //payload_bits += std::string(pad, '0');
-    
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
-        std::string full_packet = header + payload_bits;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent;
+        std::string full_packet = header + payload;
     
         uint16_t checksum = computeChecksum(full_packet);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        std::string final_packet = src + dst + seq + ack + offset_and_flags + checksum_bits + payload_bits;
+        std::string final_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent + payload;
+    
+        // Optional: print packet size
+
+    
         return final_packet;
     }
-
+    
+     
 
 bool Packet::SendPacket(int socket_fd, const std::string& packet) {
     ssize_t sent = send(socket_fd, packet.c_str(), packet.size(), 0);
@@ -166,17 +194,24 @@ uint16_t Packet::computeChecksum(const std::string& bitstring) {
 }
 
 bool Packet::verifyChecksum(const std::string& packet) {
-    if (packet.length() < 16) return false;  // Must be at least one checksum field
+    if (packet.length() < 160) {
+        std::cerr << "[Checksum] Packet too short! Must be at least 160 bits.\n";
+        return false;
+    }
 
-    std::string data = packet.substr(0, packet.length() - 16);       // All bits before checksum
-    std::string checksumBits = packet.substr(packet.length() - 16);  // Last 16 bits = checksum
-
+    // Extract checksum bits from fixed position (112–127)
+    std::string checksumBits = packet.substr(128, 16);
     if (checksumBits.find_first_not_of("01") != std::string::npos)
         return false;
+
+    // Replace checksum with 0s for validation
+    std::string data = packet.substr(0, 128) + std::string(16, '0') +
+                      ((packet.length() > 160) ? packet.substr(160) : "");
 
     uint16_t received = std::bitset<16>(checksumBits).to_ulong();
     uint16_t calculated = computeChecksum(data);
 
+    // Debug printout
     std::cout << "[VerifyChecksum] Packet Length:  " << packet.length() << " bits\n";
     std::cout << "[VerifyChecksum] Data Bits:      " << data << "\n";
     std::cout << "[VerifyChecksum] Checksum Bits:  " << checksumBits << "\n";
@@ -186,3 +221,76 @@ bool Packet::verifyChecksum(const std::string& packet) {
 
     return received == calculated;
 }
+
+
+void Packet::parsePacket(const std::string& packet) {
+    if (packet.size() < 160) {
+        std::cerr << "Packet too short! Expected 160-bit header.\n";
+        return;
+    }
+
+    // Extract 160-bit header fields
+    std::string src_bits       = packet.substr(0, 16);
+    std::string dst_bits       = packet.substr(16, 16);
+    std::string seq_bits       = packet.substr(32, 32);
+    std::string ack_bits       = packet.substr(64, 32);
+    std::string offset_flags   = packet.substr(96, 16);  // 4+3+9 bits
+    std::string window_bits    = packet.substr(112, 16);
+    std::string checksum_bits  = packet.substr(128, 16);
+    std::string urgent_bits    = packet.substr(144, 16);
+    std::string payload_bits   = (packet.size() > 160) ? packet.substr(160) : "";
+
+    // Decode fields
+    uint16_t src_port   = std::bitset<16>(src_bits).to_ulong();
+    uint16_t dst_port   = std::bitset<16>(dst_bits).to_ulong();
+    uint32_t seq_num    = std::bitset<32>(seq_bits).to_ulong();
+    uint32_t ack_num    = std::bitset<32>(ack_bits).to_ulong();
+    uint8_t data_offset = std::bitset<4>(offset_flags.substr(0, 4)).to_ulong();
+    uint8_t reserved    = std::bitset<3>(offset_flags.substr(4, 3)).to_ulong();
+    uint16_t flags      = std::bitset<9>(offset_flags.substr(7)).to_ulong();
+    uint16_t window     = std::bitset<16>(window_bits).to_ulong();
+    uint16_t checksum   = std::bitset<16>(checksum_bits).to_ulong();
+    uint16_t urgent     = std::bitset<16>(urgent_bits).to_ulong();
+
+    // Update internal state
+    last_seq_num = seq_num;
+    last_ack_num = ack_num;
+
+    // Flag decoding
+    bool isFIN = flags & 0x01;
+    bool isSYN = flags & 0x02;
+    bool isRST = flags & 0x04;
+    bool isPSH = flags & 0x08;
+    bool isACK = flags & 0x10;
+    bool isURG = flags & 0x20;
+
+    // Display breakdown
+    std::cout << "\n[Packet Breakdown]\n";
+    std::cout << "Source Port     : " << src_port << " (" << src_bits << ")\n";
+    std::cout << "Destination Port: " << dst_port << " (" << dst_bits << ")\n";
+    std::cout << "Sequence Number : " << seq_num  << " (" << seq_bits << ")\n";
+    std::cout << "Acknowledgment  : " << ack_num  << " (" << ack_bits << ")\n";
+    std::cout << "Data Offset     : " << static_cast<int>(data_offset) << " (" << offset_flags.substr(0, 4) << ")\n";
+    std::cout << "Reserved Bits   : " << static_cast<int>(reserved) << " (" << offset_flags.substr(4, 3) << ")\n";
+    std::cout << "Flags           : " << offset_flags.substr(7) << " → ";
+    if (isFIN) std::cout << "FIN ";
+    if (isSYN) std::cout << "SYN ";
+    if (isRST) std::cout << "RST ";
+    if (isPSH) std::cout << "PSH ";
+    if (isACK) std::cout << "ACK ";
+    if (isURG) std::cout << "URG ";
+    std::cout << "\n";
+    std::cout << "Window Size     : " << window  << " (" << window_bits << ")\n";
+    std::cout << "Checksum        : " << checksum << " (" << checksum_bits << ")\n";
+    std::cout << "Urgent Pointer  : " << urgent  << " (" << urgent_bits << ")\n";
+
+    if (!payload_bits.empty()) {
+        std::cout << "Payload Bits    : " << payload_bits << "\n";
+        std::cout << "Payload Size    : " << payload_bits.size() << " bits (" << payload_bits.size() / 8.0 << " bytes)\n";
+    } else {
+        std::cout << "Payload         : (none)\n";
+    }
+
+    std::cout << "─────────────────────────────────────────────\n";
+}
+

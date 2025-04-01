@@ -3,16 +3,15 @@
 #include "Sensors/Sensors.hpp"
 
 #include <iostream>
-#include <unistd.h>     // sleep
-#include <cstring>      // memset
+#include <unistd.h>
+#include <cstring>
 
 int main() {
-    // Setup connection
     SocketClient client("127.0.0.1", 8080);
     if (!client.connectToServer()) return 1;
 
     int sock = client.getSocket();
-    Packet packet(1234, 8080);  // source and destination port (customize as needed)
+    Packet packet(1234, 8080);
 
     char buffer[4096] = {0};
 
@@ -30,7 +29,9 @@ int main() {
         return 1;
     }
 
-    std::string ack = packet.AckPacket(0); // You could extract server's ISN from SYN-ACK if needed
+    packet.parsePacket(synack);
+
+    std::string ack = packet.AckPacket(0);
     packet.SendPacket(sock, ack);
     std::cout << "[Client] Sent ACK:\n" << ack << "\n\n";
     std::cout << "[Client] Handshake complete.\n\n";
@@ -38,9 +39,9 @@ int main() {
     // --- Data Transmission Loop ---
     Sensor moistureSensor("MoistureSensor", 0, 100);
     uint32_t seq_num = 0;
-    uint32_t ack_num = 0; // You could update this if server sends seqs back
+    uint32_t ack_num = 0;
 
-    while (true) {
+    for (int i = 0; i < 5; ++i) {
         moistureSensor.generateReading();
         std::string payload = moistureSensor.getBinaryPayload();
 
@@ -64,36 +65,63 @@ int main() {
             break;
         }
 
-        // Advance sequence number (simulate TCP-like behavior)
+        packet.parsePacket(ack_response);
         seq_num++;
-        sleep(20);  // Wait before sending next
+        sleep(1);
     }
 
-  // --- Wait for FIN from server ---
-memset(buffer, 0, sizeof(buffer));
-bytes_received = recv(sock, buffer, sizeof(buffer), 0);
-if (bytes_received <= 0) {
-    std::cerr << "[Client] Did not receive FIN. Exiting.\n";
+    // --- Wait for FIN from server ---
+    memset(buffer, 0, sizeof(buffer));
+    bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    if (bytes_received <= 0) {
+        std::cerr << "[Client] Did not receive FIN from server. Exiting.\n";
+        client.closeConnection();
+        return 1;
+    }
+
+    std::string server_fin(buffer, bytes_received);
+    std::cout << "[Client] Received FIN from server:\n" << server_fin << "\n";
+
+    if (!packet.verifyChecksum(server_fin)) {
+        std::cerr << "[Client] FIN checksum invalid. Exiting.\n";
+        client.closeConnection();
+        return 1;
+    }
+
+    packet.parsePacket(server_fin);
+
+    // --- Send ACK for server FIN ---
+    std::string fin_ack = packet.AckPacket(0);
+    packet.SendPacket(sock, fin_ack);
+    std::cout << "[Client] Sent ACK for FIN:\n" << fin_ack << "\n";
+
+    // --- Send client's FIN ---
+    std::string client_fin = packet.FinPacket();
+    packet.SendPacket(sock, client_fin);
+    std::cout << "[Client] Sent FIN:\n" << client_fin << "\n";
+
+    // --- Wait for final ACK from server ---
+    memset(buffer, 0, sizeof(buffer));
+    bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    if (bytes_received <= 0) {
+        std::cerr << "[Client] Did not receive final ACK from server. Exiting.\n";
+        client.closeConnection();
+        return 1;
+    }
+
+    std::string final_ack(buffer, bytes_received);
+    std::cout << "[Client] Received final ACK:\n" << final_ack << "\n";
+
+    if (!packet.verifyChecksum(final_ack)) {
+        std::cerr << "[Client] Final ACK checksum invalid. Exiting.\n";
+        client.closeConnection();
+        return 1;
+    }
+
+    packet.parsePacket(final_ack);
+
     client.closeConnection();
-    return 1;
+    std::cout << "[Client] Connection closed after four-way teardown initiated by server.\n";
 }
 
-std::string fin_packet(buffer, bytes_received);
-std::cout << "[Client] Received FIN from server:\n" << fin_packet << "\n";
-
-if (!packet.verifyChecksum(fin_packet)) {
-    std::cerr << "[Client] FIN checksum invalid. Exiting.\n";
-    client.closeConnection();
-    return 1;
-}
-
-// --- Send ACK for FIN ---
-std::string final_ack = packet.AckPacket(0); // you can add seq/ack nums if needed
-packet.SendPacket(sock, final_ack);
-std::cout << "[Client] Sent final ACK:\n" << final_ack << "\n";
-
-// --- Close connection gracefully ---
-client.closeConnection();
-std::cout << "[Client] Connection closed after FIN.\n";
-}
 

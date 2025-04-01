@@ -1,23 +1,40 @@
 #include "Packet/packet_functions.hpp"
 #include <iostream>
+#include <string>
 
 int main() {
-    // Create a Packet object with source and destination ports
-    Packet packet(1234, 8080);
+    Packet packet(1234, 8080);  // arbitrary ports for testing
 
-    // --- Step 1: Create a SYN packet
-    std::string syn_packet = packet.SynPacket();
+    // Test SYN
+    std::string syn = packet.SynPacket();
+    std::cout << ">>> Testing SYN Packet\n";
+    packet.verifyChecksum(syn);
+    packet.parsePacket(syn);
 
-    // --- Step 2: Print the full SYN packet
-    std::cout << "\n=== [Test] SYN Packet Created ===\n";
-    std::cout << syn_packet << "\n";
-    std::cout << "Length: " << syn_packet.length() << " bits\n";
+    // Test SYN-ACK
+    std::string synack = packet.SynAckPacket(11);  // assume client seq + 1 = 11
+    std::cout << "\n>>> Testing SYN-ACK Packet\n";
+    packet.verifyChecksum(synack);
+    packet.parsePacket(synack);
 
-    // --- Step 3: Verify the checksum
-    std::cout << "\n=== [Test] Verifying Checksum ===\n";
-    bool valid = packet.verifyChecksum(syn_packet);
+    // Test ACK
+    std::string ack = packet.AckPacket(99);  // assume server seq + 1 = 99
+    std::cout << "\n>>> Testing ACK Packet\n";
+    packet.verifyChecksum(ack);
+    packet.parsePacket(ack);
 
-    std::cout << "\nResult: " << (valid ? " Packet is valid" : "Packet is invalid") << "\n";
+    // Test FIN
+    std::string fin = packet.FinPacket();
+    std::cout << "\n>>> Testing FIN Packet\n";
+    packet.verifyChecksum(fin);
+    packet.parsePacket(fin);
+
+    // Test DATA
+    std::string fake_payload = "0101010101101100";  // 16-bit dummy data
+    std::string data = packet.DataPacket(1, 1, fake_payload);
+    std::cout << "\n>>> Testing DATA Packet\n";
+    packet.verifyChecksum(data);
+    packet.parsePacket(data);
 
     return 0;
 }

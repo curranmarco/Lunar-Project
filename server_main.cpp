@@ -27,7 +27,7 @@ int main() {
     }
 
     // --- 2. Send SYN-ACK ---
-    std::string synack = packet.SynAckPacket(0); // You could extract seq from SYN
+    std::string synack = packet.SynAckPacket(0);
     packet.SendPacket(client_socket, synack);
     std::cout << "[Server] Sent SYN-ACK:\n" << synack << "\n";
 
@@ -63,34 +63,50 @@ int main() {
             break;
         }
 
-        // --- Respond with ACK ---
         std::string ack_response = packet.AckPacket(0);
         packet.SendPacket(client_socket, ack_response);
         std::cout << "[Server] Sent ACK.\n\n";
 
         packet_count++;
-        if (packet_count >= 5) break;  // Stop after 5 data packets
+        if (packet_count >= 5) break;
     }
 
-    // --- 5. Send FIN ---
-    std::string fin = packet.FinPacket();
-    packet.SendPacket(client_socket, fin);
+    // --- Begin Teardown (Server-Initiated) ---
+    std::string server_fin = packet.FinPacket();
+    packet.SendPacket(client_socket, server_fin);
     std::cout << "[Server] Sent FIN.\n";
 
-    // --- 6. Wait for client's final ACK ---
+    // --- Wait for ACK of server FIN ---
     memset(buffer, 0, sizeof(buffer));
     bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
-    std::string final_ack(buffer, bytes_received);
-    std::cout << "[Server] Received final ACK:\n" << final_ack << "\n";
+    std::string ack_of_fin(buffer, bytes_received);
+    std::cout << "[Server] Received ACK for FIN:\n" << ack_of_fin << "\n";
 
-    if (!packet.verifyChecksum(final_ack)) {
-        std::cerr << "[Server] Final ACK checksum invalid.\n";
+    if (!packet.verifyChecksum(ack_of_fin)) {
+        std::cerr << "[Server] Invalid ACK for FIN.\n";
+        server.closeConnection();
+        return 1;
     }
 
-    // --- Done ---
+    // --- Wait for client FIN ---
+    memset(buffer, 0, sizeof(buffer));
+    bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    std::string client_fin(buffer, bytes_received);
+    std::cout << "[Server] Received FIN from client:\n" << client_fin << "\n";
+
+    if (!packet.verifyChecksum(client_fin)) {
+        std::cerr << "[Server] Client FIN checksum invalid.\n";
+        server.closeConnection();
+        return 1;
+    }
+
+    // --- Final ACK to client FIN ---
+    std::string final_ack = packet.AckPacket(0);
+    packet.SendPacket(client_socket, final_ack);
+    std::cout << "[Server] Sent final ACK.\n";
+
     server.closeConnection();
-    std::cout << "[Server] Connection closed cleanly.\n";
+    std::cout << "[Server] Connection closed after four-way teardown.\n";
     return 0;
 }
-
 
