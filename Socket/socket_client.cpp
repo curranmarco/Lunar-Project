@@ -78,15 +78,15 @@ std::string SocketClient::SynPacket() {
     std::bitset<5 * 32> header;
 
     //Source Port
-    std::bitset<16> source(ntohs(local_addr.sin_port));
+    std::bitset<16> source(8080);
     syn += source.to_string();
 
     // Destination Port
-    std::bitset<16> dest(ntohs(server_addr.sin_port));
+    std::bitset<16> dest(33634);
     syn += dest.to_string();
 
     // Sequence Number
-    isn = (rand() % ((int)exp2(32) - 1));
+    int isn = (rand() % ((int)exp2(32) - 1));
     std::bitset<32> isnb(isn);
     syn += isnb.to_string();
 
@@ -103,18 +103,18 @@ std::string SocketClient::SynPacket() {
     syn += res.to_string();
 
     // Flags
-    std::bitset<32> flag(2);                                // 2 = 00000010 which is the flag for SYN
+    std::bitset<9> flag(2);                                // 2 = 00000010 which is the flag for SYN
     syn += flag.to_string();
 
     // Window Size
-    std::bitset<32> window(128);                            // 1024 bits / 8
-    syn += ack_num.to_string();
+    std::bitset<16> window(128);                            // 1024 bits / 8
+    syn += window.to_string();
 
     // Urgent Pointer (Not used so just 0)
     std::bitset<16> urg(0);
 
     // Checksum (Take as zero for sum, hence 2 urg strings concatenated)
-    std::bitset<16> check = SocketClient::headerChecksum(syn + urg.to_string() + urg.to_string()); 
+    std::bitset<16> check = headerChecksum(syn + urg.to_string() + urg.to_string()); 
 
     syn += check.to_string() + urg.to_string();
 
