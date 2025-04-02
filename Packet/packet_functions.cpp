@@ -145,10 +145,10 @@ Packet::Packet(uint16_t source, uint16_t dest)
     
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
-        std::string flags       = std::bitset<9>(0x08).to_string(); // ACK
+        std::string flags       = std::bitset<9>(0x04).to_string(); // ACK
         std::string offset_and_flags = data_offset + reserved + flags;
     
-        std::string window_size = std::bitset<16>(0x24).to_string();
+        std::string window_size = std::bitset<16>(0x32).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
         std::string urgent = std::bitset<16>(0).to_string();
     

@@ -7,12 +7,12 @@
 #include <cstring>
 
 int main() {
-    SocketClient client("192.168.221.1", 8080);
+    SocketClient client("192.168.221.20", 8080);
     if (!client.connectToServer()) return 1;
 
     int sock = client.getSocket();
     Packet packet(1234, 8080);
-
+    u_int32_t seq = rand(); 
     char buffer[4096] = {0};
 
     // --- Handshake Phase ---
@@ -35,7 +35,8 @@ int main() {
     packet.SendPacket(sock, ack);
     std::cout << "[Client] Sent ACK:\n" << ack << "\n\n";
     std::cout << "[Client] Handshake complete.\n\n";
-
+    std::string init_packet = packet.DataPacket(seq++, 0, std::string(32, '0')); 
+    packet.SendPacket(client.getSocket(), init_packet); 
 
     SocketClient peerClient("127.0.0.1", 9000);
     if (!peerClient.connectToServer()) {
