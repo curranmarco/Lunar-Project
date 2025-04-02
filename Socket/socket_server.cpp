@@ -217,8 +217,9 @@ void SocketServer::handshake(int client_socket, std::string syn) {
 
     std::string checksum = SocketServer::headerChecksum(header).to_string();
     std::string packet = SocketServer::AckPacket(sn.to_ulong(), syn.length(), syn.substr(107, 9));
+    Packet pack((uint16_t)local_addr.sin_port, (uint16_t)client_addr.sin_port);
 
-    if(checksum == syn.substr(128, 16)) {
+    if(pack.verifyChecksum(syn)) {
         SocketServer::sendData(client_socket, packet);
         std::cout << "Sent ACK: " << packet << std::endl;
         sleep(1);
@@ -226,14 +227,15 @@ void SocketServer::handshake(int client_socket, std::string syn) {
         std::cout << "Received: " << ack << std::endl;
         header = ack.substr(0, 128);
         checksum = SocketServer::headerChecksum(ack).to_string();
-        std::cout << checksum << " : " << ack.substr(128, 16) << std::endl;
         
-        Packet pack((uint16_t)local_addr.sin_port, (uint16_t)client_addr.sin_port);
-        if (pack.verifyChecksum(ack));
-        else {
-            SocketServer::closeConnection(client_socket);
-            std::cout << "Checksum Failed\nSocket Closed\n";
+        if (is_syn) {
+            if (pack.verifyChecksum(ack));
+            else {
+                SocketServer::closeConnection(client_socket);
+                std::cout << "Checksum Failed\nSocket Closed\n";
+            }
         }
+        
     }
 
     else {
