@@ -20,18 +20,19 @@ private:
     fd_set master_set, read_set;
     int max_sd;
     std::vector<int> client_sockets;
+    std::string lookup[3];
 
 public:
     explicit SocketServer(int port);
     bool startListening();
     bool handleConnections();
-    void closeConnection();
+    void closeConnection(int client_socket);
     ~SocketServer();
-    void sendData();
-    void receiveData();
-    std::string SocketServer::SynAckPacket(u_int32_t snc, u_int32_t size);
+    void sendData(int client_socket, std::string packet);
+    std::string receiveData(int client_socket);
+    std::string AckPacket(u_int32_t snc, u_int32_t size, std::string flag);
     std::bitset<16> headerChecksum(std::string header);
-    void handshake(std::string syn);
+    void handshake(int client_socket, std::string syn);
 };
 
 #endif

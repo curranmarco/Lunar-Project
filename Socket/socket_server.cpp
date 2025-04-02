@@ -57,14 +57,14 @@ bool SocketServer::handleConnections() {
             if (FD_ISSET(client_socket, &read_set)) {       // Is there anything to read?
                 std::string buffer(1024, '\0');
                 int bytes_read = recv(client_socket, &buffer[0], buffer.size(), 0);
+
                 if (bytes_read <= 0) {
-                    close(client_socket);
-                    FD_CLR(client_socket, &master_set);
-                    client_sockets.erase(::std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end());
+                    SocketServer::closeConnection(client_socket);
                     std::cout << "Client disconnected.\n";
                 } else {
                     buffer.resize(bytes_read);
                     std::cout << "Received: " << buffer << std::endl;
+                    SocketServer::handshake(client_socket, buffer);
                 }
             }
         }
@@ -72,46 +72,55 @@ bool SocketServer::handleConnections() {
     return 1;
 }
 
-void SocketServer::closeConnection() {
+void SocketServer::closeConnection(int client_socket) {
     close(client_socket);
-    close(server_fd);
+    FD_CLR(client_socket, &master_set);
+    client_sockets.erase(std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end());
 }
 
 SocketServer::~SocketServer() {
-    closeConnection();
+    for (int client_socket:client_sockets)
+        closeConnection(client_socket);
 }
 
-void SocketServer::sendData() {
-    std::bitset<16> binary(ntohs(client_addr.sin_port));
-
-    std::cout << "The destination port is: " << ntohs(client_addr.sin_port) << std::endl;           // network to host port translation
-    std::cout << "Which is " << binary.to_string() << " in binary" << std::endl;
-    std::cout << "The source port is:       " << ntohs(local_addr.sin_port) << std::endl;
-    
+void SocketServer::sendData(int client_socket, std::string packet) {
+    send(client_socket, packet.c_str(), packet.length(), 0);
 }
 
-void SocketServer::receiveData() {
+std::string SocketServer::receiveData(int client_socket) {
+    std::string packet(1024, '\0');
+        int bytes_read = recv(client_socket, &packet[0], packet.size(), 0);
 
+        if (bytes_read <= 0) {
+            std::cerr << "Reading failed.\n";
+            SocketServer::closeConnection(client_socket);
+            return "";
+        }
+
+        else {
+            int bytes_read = recv(client_socket, &packet[0], packet.size(), 0);
+            return packet;
+        } 
 }
 
-std::string SocketServer::SynAckPacket(u_int32_t snc, u_int32_t size) {
+std::string SocketServer::AckPacket(u_int32_t snc, u_int32_t size, std::string flag) {
     std::string syn_ack;
 
     // Source Port
     std::bitset<16> source(ntohs(local_addr.sin_port));
-    syn_ack += source.to_string() + " ";
+    syn_ack += source.to_string();
 
     // Destination Port
     std::bitset<16> dest(ntohs(client_addr.sin_port));
-    syn_ack += dest.to_string() + " ";
+    syn_ack += dest.to_string();
 
     // Sequence Number
     std::bitset<32> snb(snc + size);
-    syn_ack += snb.to_string() + " ";
+    syn_ack += snb.to_string();
 
     // Acknowledgement Number
     std::bitset<32> ack_num(snc);
-    syn_ack += ack_num.to_string() + " ";
+    syn_ack += ack_num.to_string();
 
     // Data Offset
     std::bitset<4> offset(5);                              // 5 Words in header
@@ -122,8 +131,9 @@ std::string SocketServer::SynAckPacket(u_int32_t snc, u_int32_t size) {
     syn_ack += res.to_string();
 
     // Flags
-    std::bitset<32> flag(18);                              // 18 = 00010010 which is the flag for SYN-ACK
-    syn_ack += flag.to_string() + " ";
+    //std::bitset<9> flag(18);                              // 18 = 00010010 which is the flag for SYN-ACK
+    flag[4] = '1';                                          // Add ACK bit
+    syn_ack += flag;
 
     // Window Size
     std::bitset<16> window(24);                            // 6 words
@@ -182,6 +192,35 @@ std::bitset<16> SocketServer::headerChecksum(std::string header) {
     return ~A;
 }
 
-void SocketServer::handshake(std::string syn) {
+void SocketServer::handshake(int client_socket, std::string syn) {
+    std::string header = syn.substr(0, 128);
+    std::string sn_string = syn.substr(32, 32);
+    bool is_syn = syn[115] == '1';
 
+    // Add Client to lookup table
+    if (is_syn)
+        lookup[client_socket] = syn.substr(103, 9);
+
+    sn_string.erase(std::remove_if(sn_string.begin(), sn_string.end(), [](char c) {
+        return c != '0' && c != '1'; // Keep only '0' and '1'
+    }), sn_string.end());
+
+    std::bitset<32> sn(sn_string);
+
+    std::string checksum = SocketServer::headerChecksum(header).to_string();
+    std::string packet = SocketServer::AckPacket(sn.to_ulong(), syn.length(), syn.substr(107, 9));
+
+    if(checksum == syn.substr(128, 16)) {
+        SocketServer::sendData(client_socket, packet);
+        std::string ack = SocketServer::receiveData(client_socket);
+        header = ack.substr(0, 128);
+        checksum = SocketServer::headerChecksum(header).to_string();
+        
+        if (checksum == ack.substr(128, 16)) return;
+    }
+
+    else {
+        std::cout << "Checksum Failed\n"; 
+        SocketServer::closeConnection(client_socket);
+    }  
 }
