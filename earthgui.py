@@ -31,15 +31,20 @@ def create_data_packet(source_port, dest_port, seq_num, ack_num, payload_bits):
     offset_flags = data_offset + reserved + flags
 
     window = format(0x24, '016b')
-    checksum = format(0, '016b')  # placeholder
+    checksum_placeholder = '0000000000000000'
     urgent = format(0, '016b')
 
-    header = src + dst + seq + ack + offset_flags + window + checksum + urgent
+    # Step 1: Build header with placeholder checksum
+    header = src + dst + seq + ack + offset_flags + window + checksum_placeholder + urgent
     full_packet = header + payload_bits
+
+    # Step 2: Compute correct checksum
     checksum = compute_checksum(full_packet)
 
+    # Step 3: Rebuild packet with correct checksum
     final_packet = src + dst + seq + ack + offset_flags + window + checksum + urgent + payload_bits
     return final_packet
+
 
 class MoonRoverTCPClient:
     def __init__(self, gui_app):
@@ -48,33 +53,49 @@ class MoonRoverTCPClient:
         self.connected = False
         self.isn = random.randint(0, 2**32 - 1)
         self.ack_num = 0
-        self.server_ip = "192.168.221.1"
+        self.server_ip =  "127.0.0.1"
         self.server_port = 8080
         self.receive_thread = None
         self.source_port = random.randint(49152, 65535)
 
     def _create_syn_packet(self):
-            syn = ""
-            syn += format(self.source_port, '016b')
-            syn += format(self.server_port, '016b')
-            syn += format(self.isn, '032b')
-            syn += format(0, '032b')
-            syn += format(5, '04b') + format(0, '03b') + format(2, '09b')  # SYN = 0x02
-            syn += format(1024, '016b')
-            syn += format(0, '016b')
-            syn += format(0, '016b')
-            return syn
+            src = format(self.source_port, '016b')
+            dst = format(self.server_port, '016b')
+            seq = format(self.isn, '032b')
+            ack = format(0, '032b')
+            offset_flags = format(5, '04b') + format(0, '03b') + format(2, '09b')  # SYN = 0x02
+            window = format(1024, '016b')
+            checksum = '0000000000000000'  # placeholder
+            urgent = format(0, '016b')
+
+            # Step 1: Construct header with placeholder
+            header = src + dst + seq + ack + offset_flags + window + checksum + urgent
+
+            # Step 2: Compute checksum over this
+            computed_checksum = compute_checksum(header)
+
+            # Step 3: Reconstruct with correct checksum
+            syn_packet = src + dst + seq + ack + offset_flags + window + computed_checksum + urgent
+            return syn_packet
     def _create_ack_packet(self, ack_num):
-            ack = ""
-            ack += format(self.source_port, '016b')
-            ack += format(self.server_port, '016b')
-            ack += format(self.isn + 1, '032b')  # ACKing SYN
-            ack += format(ack_num, '032b')
-            ack += format(5, '04b') + format(0, '03b') + format(16, '09b')  # ACK = 0x10
-            ack += format(1024, '016b')
-            ack += format(0, '016b')
-            ack += format(0, '016b')
-            return ack
+        src = format(self.source_port, '016b')
+        dst = format(self.server_port, '016b')
+        seq = format(self.isn + 1, '032b')  # Acknowledging SYN
+        ack = format(ack_num, '032b')
+        offset_flags = format(5, '04b') + format(0, '03b') + format(16, '09b')  # ACK = 0x10
+        window = format(1024, '016b')
+        checksum = '0000000000000000'  # Placeholder
+        urgent = format(0, '016b')
+
+        # Step 1: Build header with placeholder checksum
+        header = src + dst + seq + ack + offset_flags + window + checksum + urgent
+
+        # Step 2: Compute checksum
+        computed_checksum = compute_checksum(header)
+
+        # Step 3: Reconstruct header with correct checksum
+        ack_packet = src + dst + seq + ack + offset_flags + window + computed_checksum + urgent
+        return ack_packet
 
     def _create_data_packet(self, data):
         payload_bits = "".join(format(ord(c), '08b') for c in data)
@@ -212,7 +233,16 @@ class EarthControlGUI:
         }
 
         self._setup_ui()
+    def _send_go_command(self):
+            # Send a movement command with default values (customize as needed)
+            self.client.send_command("MOVE", 0, 5, 64)  # 0 degrees, 5 meters, speed 64
+            self._log("Sent: Go")
 
+    def _send_stop_command(self):
+            self.client.send_command("MOVE", 0, 0, 0)  # 0 everything = stop
+            self._log("Sent: Stop")
+     
+    
     def _setup_ui(self):
         conn_frame = ttk.LabelFrame(self.root, text="Connection")
         conn_frame.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
@@ -220,22 +250,11 @@ class EarthControlGUI:
         ttk.Button(conn_frame, text="Connect to Moon", command=self._connect).grid(row=0, column=0, padx=5)
         ttk.Button(conn_frame, text="Disconnect", command=self._disconnect).grid(row=0, column=1, padx=5)
 
-        cmd_frame = ttk.LabelFrame(self.root, text="Rover Movement Commands")
+        cmd_frame = ttk.LabelFrame(self.root, text="Rover Controls")
         cmd_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
 
-        ttk.Label(cmd_frame, text="Degrees:").grid(row=0, column=0)
-        self.degrees_entry = ttk.Entry(cmd_frame)
-        self.degrees_entry.grid(row=0, column=1)
-
-        ttk.Label(cmd_frame, text="Meters:").grid(row=1, column=0)
-        self.meters_entry = ttk.Entry(cmd_frame)
-        self.meters_entry.grid(row=1, column=1)
-
-        ttk.Label(cmd_frame, text="Speed (0-128):").grid(row=2, column=0)
-        self.speed_entry = ttk.Entry(cmd_frame)
-        self.speed_entry.grid(row=2, column=1)
-
-        ttk.Button(cmd_frame, text="Send Move Command", command=self._send_move).grid(row=3, columnspan=2, pady=5)
+        ttk.Button(cmd_frame, text="Go", command=self._send_go_command).grid(row=0, column=0, padx=10, pady=5)
+        ttk.Button(cmd_frame, text="Stop", command=self._send_stop_command).grid(row=0, column=1, padx=10, pady=5)
 
         loc_frame = ttk.LabelFrame(self.root, text="Location Commands")
         loc_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
@@ -256,6 +275,7 @@ class EarthControlGUI:
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(3, weight=1)
+
 
     def _connect(self):
         if self.client.connect():
