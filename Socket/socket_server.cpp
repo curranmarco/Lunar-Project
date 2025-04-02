@@ -136,7 +136,7 @@ std::string SocketServer::AckPacket(u_int32_t snc, u_int32_t size, std::string f
     syn_ack += res.to_string();
 
     // Flags
-    //std::bitset<9> flag(18);                              // 18 = 00010010 which is the flag for SYN-ACK
+    //std::bitset<9> flag(18);                              // 18 = 000010010 which is the flag for SYN-ACK
     flag[4] = '1';                                          // Add ACK bit
     syn_ack += flag;
 
@@ -203,11 +203,26 @@ std::bitset<16> SocketServer::headerChecksum(std::string header) {
 void SocketServer::handshake(int client_socket, std::string syn) {
     std::string header = syn.substr(0, 128);
     std::string sn_string = syn.substr(32, 32);
-    bool is_syn = syn[115] == '1';
+    bool is_syn = syn[111] == '1';
 
     // Add Client to lookup table
-    if (is_syn)
-        lookup[client_socket] = syn.substr(103, 9);
+    if (is_syn) {
+        std::string flag = syn.substr(103, 9);
+        flag[7] = '0';                                                  // Remove syn flag bit
+        lookup[client_socket] = flag;                                   // Add to lookup table
+    }
+        
+    else if (syn[111] == '0' && syn[108]) {                             // If not FIN or ACK (96 + 4 + 3 + 5 / 8)
+        std::string flag = syn.substr(103, 9);
+        flag[7] = '0';
+
+        int i = lookup->find(flag);                                     // Find client in lookup table
+        if (i != client_socket)                                         // Forward packet from home client
+            SocketServer::sendData(i, syn);
+        else {                                                          // Forward packet from sensors or actuators
+            SocketServer::sendData(lookup->find((std::string)"001000000"), syn);        // 001000000 Home client flag
+        }
+    }
 
     sn_string.erase(std::remove_if(sn_string.begin(), sn_string.end(), [](char c) {
         return c != '0' && c != '1'; // Keep only '0' and '1'
@@ -215,7 +230,6 @@ void SocketServer::handshake(int client_socket, std::string syn) {
 
     std::bitset<32> sn(sn_string);
 
-    std::string checksum = SocketServer::headerChecksum(header).to_string();
     std::string packet = SocketServer::AckPacket(sn.to_ulong(), syn.length(), syn.substr(107, 9));
     Packet pack((uint16_t)local_addr.sin_port, (uint16_t)client_addr.sin_port);
 
@@ -226,7 +240,6 @@ void SocketServer::handshake(int client_socket, std::string syn) {
         std::string ack = SocketServer::receiveData(client_socket);
         std::cout << "Received: " << ack << std::endl;
         header = ack.substr(0, 128);
-        checksum = SocketServer::headerChecksum(ack).to_string();
         
         if (is_syn) {
             if (pack.verifyChecksum(ack));
