@@ -1,4 +1,5 @@
 #include "socket_server.hpp"
+#include "../Packet/packet_functions.hpp"
 
 SocketServer::SocketServer(int port) {
     addrlen = sizeof(local_addr);
@@ -64,7 +65,9 @@ bool SocketServer::handleConnections() {
                 } else {
                     buffer.resize(bytes_read);
                     std::cout << "Received: " << buffer << std::endl;
+                    std::cout << "Starting handshake..." << std::endl;
                     SocketServer::handshake(client_socket, buffer);
+                    std::cout << "Handshake complete..." << std::endl;
                 }
             }
         }
@@ -81,6 +84,7 @@ void SocketServer::closeConnection(int client_socket) {
 SocketServer::~SocketServer() {
     for (int client_socket:client_sockets)
         closeConnection(client_socket);
+        std::cout << "Socket Closed\n";
 }
 
 void SocketServer::sendData(int client_socket, std::string packet) {
@@ -94,11 +98,12 @@ std::string SocketServer::receiveData(int client_socket) {
         if (bytes_read <= 0) {
             std::cerr << "Reading failed.\n";
             SocketServer::closeConnection(client_socket);
+            std::cout << "Socket Closed\n";
             return "";
         }
 
         else {
-            int bytes_read = recv(client_socket, &packet[0], packet.size(), 0);
+            packet.resize(bytes_read);
             return packet;
         } 
 }
@@ -151,45 +156,48 @@ std::string SocketServer::AckPacket(u_int32_t snc, u_int32_t size, std::string f
 }
 
 std::bitset<16> SocketServer::headerChecksum(std::string header) {
-    uint16_t count = 0;
-    std::bitset<16> sum;
-    std::vector<std::string> half_words;
-    std::string half_word;
-
-    for (char bit:header) {
-        half_word += bit;
-        count++;
-
-        if (count == 16) {
-            half_words.push_back(half_word);
-            count = 0;
-            half_word = "";
-        }
-    }
-    std::bitset<16> A(half_words[0]);
-    std::bitset<16> B;
-    bool cin = 0;
-
-    for (int j = 1; j < half_words.size(); j++) {
-        B = std::bitset<16>(half_words[j]);
-        for (int i = 0; i < A.size(); i++) {
-            bool sum_bit = A[i] ^ B[i] ^ cin;
-            bool carry_out = (A[i] & B[i]) | (B[i] & cin) | (A[i] & cin);
-
-            A[i] = sum_bit;  
-            cin = carry_out; 
-        }
+    // Ensure header length is a multiple of 16 bits.
+    if (header.size() % 16 != 0) {
+        throw std::invalid_argument("Header length must be a multiple of 16 bits");
     }
 
-    if (cin) {
-        for (int i = 0; i < A.size() && cin; i++) {
-            bool sum_bit = A[i] ^ cin;
-            cin = A[i] & cin;
-            A[i] = sum_bit;
+    // Split the header into 16-bit words.
+    std::vector<std::bitset<16>> words;
+    for (size_t i = 0; i < header.size(); i += 16) {
+        std::string word_str = header.substr(i, 16);
+        // (You might also want to validate that word_str contains only '0' and '1'.)
+        words.push_back(std::bitset<16>(word_str));
+    }
+
+    // Start with the first 16-bit word.
+    std::bitset<16> sum = words[0];
+
+    // Add the remaining words into sum.
+    for (size_t j = 1; j < words.size(); j++) {
+        std::bitset<16> add_word = words[j];
+        bool carry = false;
+        // Do bit-by-bit addition.
+        for (size_t i = 0; i < 16; i++) {
+            bool bit1 = sum[i];
+            bool bit2 = add_word[i];
+            // Full adder logic for this bit.
+            bool result = bit1 ^ bit2 ^ carry;
+            carry = (bit1 && bit2) || (bit1 && carry) || (bit2 && carry);
+            sum[i] = result;
+        }
+        // If there's an overflow (carry out), add it back into the sum.
+        if (carry) {
+            bool c = true;
+            for (size_t i = 0; i < 16 && c; i++) {
+                bool bit = sum[i];
+                sum[i] = bit ^ c;
+                c = bit && c;
+            }
         }
     }
 
-    return ~A;
+    // Return one's complement of the sum.
+    return ~sum;
 }
 
 void SocketServer::handshake(int client_socket, std::string syn) {
@@ -213,15 +221,23 @@ void SocketServer::handshake(int client_socket, std::string syn) {
     if(checksum == syn.substr(128, 16)) {
         SocketServer::sendData(client_socket, packet);
         std::cout << "Sent ACK: " << packet << std::endl;
+        sleep(1);
         std::string ack = SocketServer::receiveData(client_socket);
+        std::cout << "Received: " << ack << std::endl;
         header = ack.substr(0, 128);
-        checksum = SocketServer::headerChecksum(header).to_string();
+        checksum = SocketServer::headerChecksum(ack).to_string();
+        std::cout << checksum << " : " << ack.substr(128, 16) << std::endl;
         
-        if (checksum == ack.substr(128, 16)) return;
+        Packet pack((uint16_t)local_addr.sin_port, (uint16_t)client_addr.sin_port);
+        if (pack.verifyChecksum(ack));
+        else {
+            SocketServer::closeConnection(client_socket);
+            std::cout << "Checksum Failed\nSocket Closed\n";
+        }
     }
 
     else {
-        std::cout << "Checksum Failed\n"; 
+        std::cout << "Checksum Failed\nSocket Closed\n"; 
         SocketServer::closeConnection(client_socket);
     }  
 }
