@@ -60,13 +60,13 @@ SocketClient::~SocketClient() {
 /**********************************************************************************/
 /**********************************************************************************/
 
-void SocketClient::sendData() {
-    std::bitset<16> binary(ntohs(server_addr.sin_port));
-
-    std::cout << "The destination port is: " << ntohs(server_addr.sin_port) << std::endl;           // network to host port translation
-    std::cout << "Which is " << binary.to_string() << " in binary" << std::endl;
-    std::cout << "The source port is:       " << ntohs(local_addr.sin_port) << std::endl;
-    
+void SocketClient::sendData(int client_socket, std::string packet) {
+    int bytes_sent = send(sock, packet.c_str(), packet.size(), 0);
+    if (bytes_sent < 0) {
+        std::cerr << "Failed to send data.\n";
+    }
+    std::cout << "Sent: " << packet << "\n";
+    sleep(1);
 }
 
 void SocketClient::receiveData() {

@@ -19,7 +19,7 @@ public:
     explicit SocketClient(const std::string& server_ip, int port);
     bool connectToServer(int source_port = 0);
     void closeConnection();
-    void sendData();
+    void sendData(int client_socket, std::string packet);
     void receiveData();
     std::string SynPacket();
     std::string AckPacket(u_int32_t sns, u_int32_t size);

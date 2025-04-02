@@ -212,6 +212,7 @@ void SocketServer::handshake(int client_socket, std::string syn) {
 
     if(checksum == syn.substr(128, 16)) {
         SocketServer::sendData(client_socket, packet);
+        std::cout << "Sent ACK: " << packet << std::endl;
         std::string ack = SocketServer::receiveData(client_socket);
         header = ack.substr(0, 128);
         checksum = SocketServer::headerChecksum(header).to_string();
