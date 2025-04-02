@@ -11,6 +11,5 @@ int main() {
     std::cout << "Server is running and waiting for client connections...\n";
     server.handleConnections();  
 
-    server.closeConnection();
     return 0;
 }
