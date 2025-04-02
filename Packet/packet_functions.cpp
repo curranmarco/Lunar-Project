@@ -65,7 +65,7 @@ Packet::Packet(uint16_t source, uint16_t dest)
         return src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer;
     }
     
-
+    
     std::string Packet::AckPacket(uint32_t isns) {
         std::string src  = std::bitset<16>(source_port).to_string();
         std::string dst  = std::bitset<16>(dest_port).to_string();
