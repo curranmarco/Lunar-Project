@@ -7,7 +7,7 @@
 #include <cstring>
 
 int main() {
-    SocketClient client("127.0.0.1", 8080);
+    SocketClient client("192.168.221.1", 8080);
     if (!client.connectToServer()) return 1;
 
     int sock = client.getSocket();
@@ -36,15 +36,15 @@ int main() {
     std::cout << "[Client] Sent ACK:\n" << ack << "\n\n";
     std::cout << "[Client] Handshake complete.\n\n";
 
-///////////////////////PEER CLIENT ///////////////////////////
-    /*SocketClient peerClient("127.0.0.1", 9000);
+
+    SocketClient peerClient("127.0.0.1", 9000);
     if (!peerClient.connectToServer()) {
     std::cerr << "[Client] Failed to connect to peer.\n";
     } else {
     std::cout << "[Client] Connected to peer on port 9000.\n";
     }
-    int peer_sock = peerClient.getSocket();*/
-///////////////////////////////////////////////////////////////////////
+    int peer_sock = peerClient.getSocket();
+
     // --- Data Transmission Loop ---
     // --- Data Transmission Loop ---
 Sensor moistureSensor("MoistureSensor", 0, 100);
@@ -60,11 +60,11 @@ while (true) {
     std::string data_packet = packet.DataPacket(seq_num, ack_num, payload);
     packet.SendPacket(sock, data_packet);
     std::cout << "[Client] Sent DATA to Server (seq=" << seq_num << "):\n" << data_packet << "\n\n";
-   /* if (sensorValue > 900 && peer_sock > 0) {
+   if (sensorValue > 900 && peer_sock > 0) {
         std::string p2p_payload = "Sensor(" + std::to_string(sensorValue) + ")";
         send(peer_sock, p2p_payload.c_str(), p2p_payload.size(), 0);
-        std::cout << "[Client] 📤 Sent high value to peer: " << sensorValue << "\n";
-    } */
+        std::cout << "[Client]  Sent high value to peer: " << sensorValue << "\n";
+    } 
     int retry_count = 0;
     const int max_retries = 5;
     bool ack_received = false;
@@ -89,15 +89,56 @@ while (true) {
         if (activity > 0 && FD_ISSET(sock, &readfds)) {
             // ACK or FIN received
             memset(buffer, 0, sizeof(buffer));
-            int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
-            if (bytes_received <= 0) {
-                std::cerr << "[Client] Connection closed or error receiving. Exiting.\n";
-                teardown_initiated = true;
-                break;
-            }
+int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
 
-            std::string response(buffer, bytes_received);
-            std::cout << "[Client] Received Response:\n" << response << "\n";
+if (bytes_received <= 0) {
+    std::cerr << "[Client] Connection closed or error receiving. Exiting.\n";
+    teardown_initiated = true;
+    break;
+}
+
+if (bytes_received < 16) {
+    std::cerr << "[Client] Warning: Received very short packet (" << bytes_received << " bytes)\n";
+}
+// Always use the exact number of bytes received
+std::string response(buffer, bytes_received);
+
+// Helpful diagnostics
+std::cout << "[Client] Received " << bytes_received << " bytes.\n";
+std::cout << "[Client] Raw Response: [" << response << "]\n";
+
+// Optional: Show content in hex (useful for short or binary packets)
+std::cout << "[Client] Hex Dump: ";
+for (int i = 0; i < bytes_received; ++i)
+    std::cout << std::hex << ((int)buffer[i] & 0xff) << " ";
+std::cout << std::dec << "\n\n";
+
+if (!packet.verifyChecksum(response)) {
+    std::cerr << "[Client] Invalid checksum in response.\n";
+    break;
+}
+
+packet.parsePacket(response);
+if (response.size() >= 112) {
+    std::string flags = response.substr(103, 9);
+    std::cout << "[Client] Flags: " << flags << "\n";
+
+    if (flags == "000000001") { // FIN
+        std::cout << "[Client] Received FIN from server. Starting teardown...\n";
+        teardown_initiated = true;
+        break;
+    } else if (flags == "000010000") { // ACK
+        std::cout << "[Client] Received ACK.\n";
+        ack_received = true;
+        break;
+    } else {
+        std::cout << "[Client] Unknown or unhandled flag: " << flags << "\n";
+    }
+}
+
+ack_received = true;
+break; // ACK received
+
 
             if (!packet.verifyChecksum(response)) {
                 std::cerr << "[Client] Invalid checksum in response.\n";
@@ -106,7 +147,7 @@ while (true) {
 
             packet.parsePacket(response);
 
-            if (response.substr(104, 9) == "000000001") {
+            if (response.size() >= 112 && response.substr(103, 9) == "000000001") {
                 std::cout << "[Client] Received FIN from server. Starting teardown...\n";
                 teardown_initiated = true;
                 break;
@@ -188,5 +229,7 @@ while (true) {
     std::cout << "[Client] Connection closed after four-way teardown initiated by server.\n";
 }
 }
+
+
 
 

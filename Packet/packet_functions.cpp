@@ -20,7 +20,7 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string ack  = std::bitset<32>(0).to_string();
         std::string data_offset = std::bitset<4>(5).to_string(); // usually 5
         std::string reserved    = std::bitset<3>(0).to_string();
-        std::string flags       = std::bitset<9>(0x02).to_string();  // SYN flag
+        std::string flags       = std::bitset<9>(0x0).to_string();  // SYN flag
         std::string offset_and_flags = data_offset + reserved + flags;
         std::string urgent = std::bitset<16>(0).to_string();
         std::string window_size = std::bitset<16>(0x24).to_string();
@@ -53,7 +53,7 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string ack  = std::bitset<32>(isnc).to_string();  // use client seq + 1 ideally
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
-        std::string flags       = std::bitset<9>(0x12).to_string(); // SYN + ACK
+        std::string flags       = std::bitset<9>(0xA).to_string(); // SYN + ACK
         std::string offset_and_flags = data_offset + reserved + flags;
         std::string urgent = std::bitset<16>(0).to_string();
         std::string window_size = std::bitset<16>(0x24).to_string();
@@ -145,7 +145,7 @@ Packet::Packet(uint16_t source, uint16_t dest)
     
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved    = std::bitset<3>(0).to_string();
-        std::string flags       = std::bitset<9>(0x10).to_string(); // ACK
+        std::string flags       = std::bitset<9>(0x08).to_string(); // ACK
         std::string offset_and_flags = data_offset + reserved + flags;
     
         std::string window_size = std::bitset<16>(0x24).to_string();
@@ -206,11 +206,6 @@ uint16_t Packet::computeChecksum(const std::string& bitstring) {
 }
 
 bool Packet::verifyChecksum(const std::string& packet) {
-    if (packet.length() < 160) {
-        std::cerr << "[Checksum] Packet too short! Must be at least 160 bits.\n";
-        return false;
-    }
-
     // Extract checksum bits from fixed position (112–127)
     std::string checksumBits = packet.substr(128, 16);
     if (checksumBits.find_first_not_of("01") != std::string::npos)
@@ -223,24 +218,14 @@ bool Packet::verifyChecksum(const std::string& packet) {
     uint16_t received = std::bitset<16>(checksumBits).to_ulong();
     uint16_t calculated = computeChecksum(data);
 
-    // Debug printout
-    std::cout << "[VerifyChecksum] Packet Length:  " << packet.length() << " bits\n";
-    std::cout << "[VerifyChecksum] Data Bits:      " << data << "\n";
-    std::cout << "[VerifyChecksum] Checksum Bits:  " << checksumBits << "\n";
-    std::cout << "[VerifyChecksum] Received (dec): " << received << "\n";
-    std::cout << "[VerifyChecksum] Calculated:     " << calculated << "\n";
-    std::cout << "[VerifyChecksum] Match?          " << (received == calculated ? "YES" : " NO") << "\n";
+
 
     return received == calculated;
 }
 
 
 void Packet::parsePacket(const std::string& packet) {
-    if (packet.size() < 160) {
-        std::cerr << "Packet too short! Expected 160-bit header.\n";
-        return;
-    }
-
+  
     // Extract 160-bit header fields
     std::string src_bits       = packet.substr(0, 16);
     std::string dst_bits       = packet.substr(16, 16);
