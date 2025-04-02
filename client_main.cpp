@@ -7,7 +7,7 @@
 #include <cstring>
 
 int main() {
-    SocketClient client("192.168.221.1", 8080);
+    SocketClient client("192.168.221.20", 8080);
     if (!client.connectToServer()) return 1;
 
     int sock = client.getSocket();
@@ -21,6 +21,7 @@ int main() {
     std::cout << "[Client] Sent SYN:\n" << syn << "\n\n";
 
     int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    sleep(5); 
     std::string synack(buffer, bytes_received);
     std::cout << "[Client] Received SYN-ACK:\n" << synack << "\n\n";
 
@@ -33,17 +34,18 @@ int main() {
 
     std::string ack = packet.AckPacket(0);
     packet.SendPacket(sock, ack);
+    sleep(5);
     std::cout << "[Client] Sent ACK:\n" << ack << "\n\n";
     std::cout << "[Client] Handshake complete.\n\n";
 
 
-    SocketClient peerClient("127.0.0.1", 9000);
+   /*  SocketClient peerClient("127.0.0.1", 9000);
     if (!peerClient.connectToServer()) {
     std::cerr << "[Client] Failed to connect to peer.\n";
     } else {
     std::cout << "[Client] Connected to peer on port 9000.\n";
     }
-    int peer_sock = peerClient.getSocket();
+    int peer_sock = peerClient.getSocket(); */
 
     // --- Data Transmission Loop ---
     // --- Data Transmission Loop ---
@@ -59,12 +61,12 @@ while (true) {
 
     std::string data_packet = packet.DataPacket(seq_num, ack_num, payload);
     packet.SendPacket(sock, data_packet);
-    std::cout << "[Client] Sent DATA to Server (seq=" << seq_num << "):\n" << data_packet << "\n\n";
-   if (sensorValue > 900 && peer_sock > 0) {
+    std::cout << "[Client] Sent DATA to Server (seq=" << seq_num << "):\n" << data_packet << "\n\n"; 
+   /*if (sensorValue > 900 && peer_sock > 0) {
         std::string p2p_payload = "Sensor(" + std::to_string(sensorValue) + ")";
         send(peer_sock, p2p_payload.c_str(), p2p_payload.size(), 0);
         std::cout << "[Client]  Sent high value to peer: " << sensorValue << "\n";
-    } 
+    } */
     int retry_count = 0;
     const int max_retries = 5;
     bool ack_received = false;
@@ -89,7 +91,8 @@ while (true) {
         if (activity > 0 && FD_ISSET(sock, &readfds)) {
             // ACK or FIN received
             memset(buffer, 0, sizeof(buffer));
-int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+            int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+            sleep(1);
 
 if (bytes_received <= 0) {
     std::cerr << "[Client] Connection closed or error receiving. Exiting.\n";
@@ -134,6 +137,8 @@ if (response.size() >= 112) {
     } else {
         std::cout << "[Client] Unknown or unhandled flag: " << flags << "\n";
     }
+
+    sleep(1);
 }
 
 ack_received = true;
@@ -168,7 +173,7 @@ break; // ACK received
     }
 
     seq_num++;
-    sleep(1);
+    sleep(5);
 }
 
 
@@ -177,6 +182,7 @@ break; // ACK received
     // --- Wait for FIN from server ---
     memset(buffer, 0, sizeof(buffer));
     bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    sleep(1);
     if (bytes_received <= 0) {
         std::cerr << "[Client] Did not receive FIN from server. Exiting.\n";
         client.closeConnection();
@@ -208,6 +214,7 @@ break; // ACK received
     if(teardown_initiated){
     memset(buffer, 0, sizeof(buffer));
     bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    sleep(5); 
     if (bytes_received <= 0) {
         std::cerr << "[Client] Did not receive final ACK from server. Exiting.\n";
         client.closeConnection();
