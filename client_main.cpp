@@ -15,6 +15,8 @@
 
 #define FLAG_MOVE_STOP "000001000"
 #define FLAG_SPEED_REQ "000100000"
+#define FLAG_FIN "000000001"
+
 
 std::string generateDataPayload(bool isMoving, int speed = -1) {
     if (speed != -1) {
@@ -30,7 +32,7 @@ std::string extractFlags(const std::string& packet) {
 }
 
 std::string extractPayload(const std::string& packet) {
-    size_t payload_start = 16 + 16 + 32 + 32 + 4 + 3 + 9 + 16;
+    size_t payload_start = 16 + 16 + 32 + 32 + 4 + 3 + 9 + 16 + 16 + 16;
     return packet.substr(payload_start);
 }
 
@@ -88,6 +90,24 @@ int main() {
     //packet.SendPacket(client.getSocket(), packet.DataPacket(seq, 0, "11111111", 0x02));
 
     char buffer[1024];
+    // --- Receive SYN-ACK and send final ACK ---
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t synack_received = recv(client.getSocket(), buffer, sizeof(buffer), 0);
+    if (synack_received <= 0) {
+        std::cerr << "❌ Did not receive SYN-ACK.\n";
+        return 1;
+    }
+    std::string synack_packet(buffer, synack_received);
+    std::cout << "[Client] Received SYN-ACK:\n" << synack_packet << "\n";
+    if (!Packet::verifyChecksum(synack_packet)) {
+        std::cerr << "❌ Invalid SYN-ACK checksum.\n";
+        return 1;
+    }
+
+    std::string ack = packet.AckPacket(0);
+    packet.SendPacket(client.getSocket(), ack);
+    std::cout << "[Client] Sent ACK for SYN-ACK:\n" << ack << "\n";
+
     std::cout << "🚀 Actuator client started. Waiting for instructions...\n";
 
     while (true) {
@@ -111,8 +131,14 @@ int main() {
         std::cout << "[DEBUG] Extracted flags: " << flags << "\n";
 
         std::string response_data;
-
-        if (flags == FLAG_MOVE_STOP) {
+        if (flags == FLAG_FIN){
+            std::cout << "📴 Received FIN from server. Closing connection.\n";
+            std::string ack = packet.AckPacket(0);
+            packet.SendPacket(client.getSocket(), ack);
+            std::cout << "📬 Sent ACK for FIN.\n";
+            break;
+        }
+        else if (flags == FLAG_MOVE_STOP) {
             std::string payload = extractPayload(received_packet);
             bool move = payload.substr(0, 8) == "00000001";
             std::cout << "🔧 Executing command: " << (move ? "MOVE" : "STOP") << "\n";
@@ -131,6 +157,29 @@ int main() {
         std::string response_packet = packet.DataPacket(seq, 0, response_data, 0x10);
         packet.SendPacket(client.getSocket(), response_packet);
         seq += response_data.length();
+        bool ack_received = false;
+        for (int attempts = 0; attempts < 3 && !ack_received; ++attempts) {
+            fd_set readfds;
+            struct timeval timeout;
+            FD_ZERO(&readfds);
+            FD_SET(client.getSocket(), &readfds);
+            timeout.tv_sec = 2;  // wait up to 2 seconds
+            timeout.tv_usec = 0;
+
+            int result = select(client.getSocket() + 1, &readfds, nullptr, nullptr, &timeout);
+            if (result > 0 && FD_ISSET(client.getSocket(), &readfds)) {
+                memset(buffer, 0, sizeof(buffer));
+                ssize_t ack_bytes = recv(client.getSocket(), buffer, sizeof(buffer), 0);
+                std::string ack_response(buffer, ack_bytes);
+                if (Packet::verifyChecksum(ack_response)) {
+                    std::cout << "✅ ACK received after data.\n";
+                    ack_received = true;
+                }
+            } else {
+                std::cout << "⏱️ No ACK received, retrying (" << attempts + 1 << "/3)...\n";
+                packet.SendPacket(client.getSocket(), response_packet);
+            }
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }

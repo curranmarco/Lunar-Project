@@ -17,14 +17,16 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x02).to_string();  // SYN flag
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string window_size = std::bitset<16>(24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent_pointer = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent_pointer;
     
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        std::string syn_packet = src + dst + seq + ack + offset_and_flags + checksum_bits;
+        std::string syn_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer;
     
         // Debug printing
         std::cout << "[SYN Packet Breakdown]\n";
@@ -52,13 +54,15 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x12).to_string(); // SYN + ACK
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string window_size = std::bitset<16>(24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent_pointer = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent_pointer;
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        return src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer;
     }
     
 
@@ -72,13 +76,15 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x10).to_string(); // ACK only
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string window_size = std::bitset<16>(24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent_pointer = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent_pointer;
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        return src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer;
     }
 
 
@@ -91,13 +97,15 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string reserved    = std::bitset<3>(0).to_string();
         std::string flags       = std::bitset<9>(0x01).to_string(); // FIN
         std::string offset_and_flags = data_offset + reserved + flags;
+        std::string window_size = std::bitset<16>(24).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent_pointer = std::bitset<16>(0).to_string();
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent_pointer;
         uint16_t checksum = computeChecksum(header);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        return src + dst + seq + ack + offset_and_flags + checksum_bits;
+        return src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer;
     }
 
     std::string Packet::DataPacket(uint32_t seq_num, uint32_t ack_num, const std::string& payload, uint16_t flags) {
@@ -108,9 +116,11 @@ Packet::Packet(uint16_t source, uint16_t dest)
         std::string data_offset = std::bitset<4>(5).to_string();
         std::string reserved = std::bitset<3>(0).to_string();
         std::string flags_bits = std::bitset<9>(flags).to_string(); // ACK
+        std::string window_size = std::bitset<16>(24).to_string();
         std::string offset_and_flags = data_offset + reserved + flags_bits;
         //std::string length = std::bitset<32>(payload.size()).to_string();
         std::string checksum_placeholder = std::bitset<16>(0).to_string();
+        std::string urgent_pointer = std::bitset<16>(0).to_string();
     
         // Convert payload to bitstring
         std::string payload_bits = payload; 
@@ -118,13 +128,13 @@ Packet::Packet(uint16_t source, uint16_t dest)
         //size_t pad = (32 - (payload_bits.size() % 32)) % 32;
         //payload_bits += std::string(pad, '0');
     
-        std::string header = src + dst + seq + ack + offset_and_flags + checksum_placeholder;
+        std::string header = src + dst + seq + ack + offset_and_flags + window_size + checksum_placeholder + urgent_pointer;
         std::string full_packet = header + payload_bits;
     
         uint16_t checksum = computeChecksum(full_packet);
         std::string checksum_bits = std::bitset<16>(checksum).to_string();
     
-        std::string final_packet = src + dst + seq + ack + offset_and_flags + checksum_bits + payload_bits;
+        std::string final_packet = src + dst + seq + ack + offset_and_flags + window_size + checksum_bits + urgent_pointer + payload_bits;
         return final_packet;
     }
 
