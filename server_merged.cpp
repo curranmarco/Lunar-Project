@@ -46,8 +46,15 @@ void forwardAndRelayResponse(int fromSock, int toSock, bool patchToAck = false) 
                 std::string patched = response;
                 size_t flag_index = 16 + 16 + 32 + 32 + 4 + 3;
                 patched.replace(flag_index, 9, std::bitset<9>(FLAG_ACK).to_string());
-                global_packet.SendPacket(toSock, patched);
-            } else {
+            
+                // Recalculate checksum
+                std::string data_no_checksum = patched.substr(0, patched.length() - 16);
+                uint16_t new_checksum = global_packet.computeChecksum(data_no_checksum);
+                std::string checksum_bits = std::bitset<16>(new_checksum).to_string();
+            
+                std::string corrected_packet = data_no_checksum + checksum_bits;
+                global_packet.SendPacket(toSock, corrected_packet);
+            }else {
                 global_packet.SendPacket(toSock, response);
             }
         } else {
