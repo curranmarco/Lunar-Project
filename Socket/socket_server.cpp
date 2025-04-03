@@ -22,6 +22,10 @@ SocketServer::SocketServer(int port) {
 
     FD_SET(server_fd, &master_set);
     max_sd = server_fd;
+    
+    for (int i = 0; i < 4; i++) {
+        lookup[i] = "0";
+    }
 }
 
 bool SocketServer::startListening() {
@@ -203,24 +207,29 @@ std::bitset<16> SocketServer::headerChecksum(std::string header) {
 void SocketServer::handshake(int client_socket, std::string syn) {
     std::string header = syn.substr(0, 128);
     std::string sn_string = syn.substr(32, 32);
-    bool is_syn = syn[111] == '1';
+    bool is_syn = syn[110] == '1';
+    std::cout << "Is this a syn? " << is_syn << std::endl;
+    std::cout << "Because the flags are " << syn.substr(104, 9) << std::endl;
 
     // Add Client to lookup table
     if (is_syn) {
         std::string flag = syn.substr(103, 9);
         flag[7] = '0';                                                  // Remove syn flag bit
-        lookup[client_socket] = flag;                                   // Add to lookup table
+        SocketServer::lookup[client_socket] = flag;                     // Add to lookup table
     }
         
-    else if (syn[111] == '0' && syn[108]) {                             // If not FIN or ACK (96 + 4 + 3 + 5 / 8)
+    else if (syn[111] == '0' && syn[107] == '0') {                      // If not FIN or ACK (96 + 4 + 3 + 5 / 8)
         std::string flag = syn.substr(103, 9);
         flag[7] = '0';
 
-        int i = lookup->find(flag);                                     // Find client in lookup table
-        if (i != client_socket)                                         // Forward packet from home client
-            SocketServer::sendData(i, syn);
+        int* index;
+        for (*index = 0; lookup[*index] != flag; *index++);
+
+        if (*index != client_socket)                                    // Forward packet from home client
+            SocketServer::sendData(*index, syn);
         else {                                                          // Forward packet from sensors or actuators
-            SocketServer::sendData(lookup->find((std::string)"001000000"), syn);        // 001000000 Home client flag
+            for (*index = 0; lookup[*index] != "001000000"; *index++);
+            SocketServer::sendData(*index, syn);                        // 001000000 Home client flag
         }
     }
 
@@ -234,11 +243,11 @@ void SocketServer::handshake(int client_socket, std::string syn) {
     Packet pack((uint16_t)local_addr.sin_port, (uint16_t)client_addr.sin_port);
 
     if(pack.verifyChecksum(syn)) {
+        std::cout << "Sent ACK: " << std::endl;
         SocketServer::sendData(client_socket, packet);
-        std::cout << "Sent ACK: " << packet << std::endl;
         sleep(1);
         std::string ack = SocketServer::receiveData(client_socket);
-        std::cout << "Received: " << ack << std::endl;
+        std::cout << "Received: " << std::endl;
         header = ack.substr(0, 128);
         
         if (is_syn) {

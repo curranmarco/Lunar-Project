@@ -20,7 +20,7 @@ private:
     fd_set master_set, read_set;
     int max_sd;
     std::vector<int> client_sockets;
-    std::string lookup[3];
+    std::string lookup[256];
 
 public:
     explicit SocketServer(int port);
