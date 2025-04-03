@@ -14,8 +14,11 @@ int main() {
     std::bitset<32> sn(syn_ack.substr(32, 32));
     client.sendData(client.getServerSocket(), client.AckPacket(sn.to_ullong(), (uint32_t)syn_ack.size()));
     std::cout << "Handshake complete...\n";
+    sleep(1);
 
-    std::string command = client.receiveData();
+    std::string command = "";
+    while (command == "")
+        command = client.receiveData();
     std::cout << "Sensor Data request received\n";
 
     sn = std::bitset<32>(command.substr(32, 32));

@@ -16,8 +16,9 @@ SocketServer::SocketServer(int port) {
     local_addr.sin_port = htons(port);
 
     // Bind the socket
-    if (bind(server_fd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
+    while (bind(server_fd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
         std::cerr << "Bind failed.\n";
+        sleep(1);
     }
 
     FD_SET(server_fd, &master_set);
@@ -97,19 +98,19 @@ void SocketServer::sendData(int client_socket, std::string packet) {
 
 std::string SocketServer::receiveData(int client_socket) {
     std::string packet(1024, '\0');
-        int bytes_read = recv(client_socket, &packet[0], packet.size(), 0);
+    int bytes_read = recv(client_socket, &packet[0], packet.size(), 0);
 
-        if (bytes_read <= 0) {
-            std::cerr << "Reading failed.\n";
-            SocketServer::closeConnection(client_socket);
-            std::cout << "Socket Closed\n";
-            return "";
-        }
+    if (bytes_read <= 0) {
+        std::cerr << "Reading failed.\n";
+        SocketServer::closeConnection(client_socket);
+        std::cout << "Socket Closed\n";
+        return "";
+    }
 
-        else {
-            packet.resize(bytes_read);
-            return packet;
-        } 
+    else {
+        packet.resize(bytes_read);
+        return packet;
+    } 
 }
 
 std::string SocketServer::AckPacket(u_int32_t snc, u_int32_t size, std::string flag) {
@@ -209,27 +210,32 @@ void SocketServer::handshake(int client_socket, std::string syn) {
     std::string sn_string = syn.substr(32, 32);
     bool is_syn = syn[110] == '1';
     std::cout << "Is this a syn? " << is_syn << std::endl;
-    std::cout << "Because the flags are " << syn.substr(104, 9) << std::endl;
+    std::cout << "Because the flags are " << syn.substr(103, 9) << std::endl;
 
     // Add Client to lookup table
     if (is_syn) {
         std::string flag = syn.substr(103, 9);
         flag[7] = '0';                                                  // Remove syn flag bit
         SocketServer::lookup[client_socket] = flag;                     // Add to lookup table
+        std::cout << "Added " << lookup[client_socket] << " to lookup table\n";
     }
         
     else if (syn[111] == '0' && syn[107] == '0') {                      // If not FIN or ACK (96 + 4 + 3 + 5 / 8)
         std::string flag = syn.substr(103, 9);
-        flag[7] = '0';
 
-        int* index;
-        for (*index = 0; lookup[*index] != flag; *index++);
+        int index;
+        for (index = 0; lookup[index] != flag && index < 256; index++)
+            std::cout << lookup[index] << " : " << flag << " " << (lookup[index] == flag) << std::endl;
+        std::cout << lookup[index] << " : " << flag << " " << (lookup[index] == flag) << std::endl;
 
-        if (*index != client_socket)                                    // Forward packet from home client
-            SocketServer::sendData(*index, syn);
-        else {                                                          // Forward packet from sensors or actuators
-            for (*index = 0; lookup[*index] != "001000000"; *index++);
-            SocketServer::sendData(*index, syn);                        // 001000000 Home client flag
+        if (index != client_socket) {                                  // Forward packet from home client
+            SocketServer::sendData(index, syn);
+            std::cout << "Forwarding packet: " << syn << std::endl;
+        }
+
+        else {                                                         // Forward packet from sensors or actuators
+            for (index = 0; lookup[index] != "001000000"; index++);
+            SocketServer::sendData(index, syn);                        // 001000000 Home client flag
         }
     }
 
