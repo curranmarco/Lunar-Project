@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #define FLAG_EARTH 0x40
-#define FLAG_REQUEST_SENSOR 0x10
+#define FLAG_REQUEST_SENSOR 0x80
 #define FLAG_REQUEST_ACTUATOR 0x20
 #define FLAG_FIN 0x01
 

@@ -13,7 +13,7 @@
 #define FLAG_SENSOR 0x04
 #define FLAG_ACTUATOR 0x08
 #define FLAG_EARTH 0x40
-#define FLAG_REQUEST_SENSOR 0x10
+#define FLAG_REQUEST_SENSOR 0x80
 #define FLAG_REQUEST_ACTUATOR 0x20
 #define FLAG_ACK 0x10
 #define FLAG_FIN 0x01
@@ -31,13 +31,25 @@ bool earthReady = false;
 
 Packet global_packet(8080, 5000);
 
-void forwardAndRelayResponse(int fromSock, int toSock) {
+void forwardAndRelayResponse(int fromSock, int toSock, bool patchToAck = false) {
     char buffer[2048] = {0};
     ssize_t len = recv(fromSock, buffer, sizeof(buffer), 0);
     if (len > 0) {
         std::string response(buffer, len);
         if (Packet::verifyChecksum(response)) {
-            global_packet.SendPacket(toSock, response);
+            // Send ACK to client
+            std::string ack = global_packet.AckPacket(0);
+            global_packet.SendPacket(fromSock, ack);
+            std::cout << "✅ Sent ACK back to data sender.\n";
+
+            if (patchToAck) {
+                std::string patched = response;
+                size_t flag_index = 16 + 16 + 32 + 32 + 4 + 3;
+                patched.replace(flag_index, 9, std::bitset<9>(FLAG_ACK).to_string());
+                global_packet.SendPacket(toSock, patched);
+            } else {
+                global_packet.SendPacket(toSock, response);
+            }
         } else {
             std::cerr << "❌ Invalid checksum in response." << std::endl;
         }
@@ -63,7 +75,7 @@ void handleEarth() {
 
         if (flag_val == FLAG_REQUEST_SENSOR && sensorReady) {
             global_packet.SendPacket(sensorSock, command);
-            forwardAndRelayResponse(sensorSock, earthSock);
+            forwardAndRelayResponse(sensorSock, earthSock, true); // patch sensor -> ack
         } else if (flag_val == FLAG_REQUEST_ACTUATOR && actuatorReady) {
             global_packet.SendPacket(actuatorSock, command);
             forwardAndRelayResponse(actuatorSock, earthSock);
